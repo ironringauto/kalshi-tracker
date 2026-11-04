@@ -56,7 +56,7 @@ td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
 td.wrap{min-width:240px;max-width:460px}
 #losses td:first-child,#research td:nth-child(2),#research td:first-child{white-space:nowrap}
 .pill{display:inline-block;padding:0 8px;border-radius:999px;font-size:11px;border:1px solid currentColor}
-.pill.open{color:var(--muted)} .pill.won{color:var(--ok)} .pill.lost{color:var(--bad)}
+.pill.open{color:var(--muted)} .pill.warnp{color:var(--warn)} .pill.won{color:var(--ok)} .pill.lost{color:var(--bad)}
 .pos{color:var(--ok)} .neg{color:var(--bad)}
 .chart{position:relative;min-height:290px}
 .tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:6px 9px;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;z-index:2}
@@ -122,10 +122,12 @@ footer{color:var(--muted);font-size:12px}
           <thead><tr><th>Strategy</th><th>Role</th><th class="n">Settled</th><th class="n">Open</th><th class="n">Win %</th><th class="n">Profit</th><th class="n">Per dollar</th></tr></thead>
           <tbody id="strat"></tbody></table></div>
       </div>
-      <div class="card">
-        <h3>Open long-shot fades by category</h3>
-        <p class="note">Entries still waiting to settle, with the pretend money in each.</p>
-        <div class="bars" id="cats"></div>
+      <div class="card wide">
+        <h3>Long-shot fades by category</h3>
+        <p class="note">Same rules in every category: the bot takes every market that qualifies, so the counts differ only because Kalshi lists more of some kinds. What makes the comparison fair is enough independent events per category. Events are distinct settlement days or games; several strikes on the same day count once. Enough data = 300+ events, Getting there = 100+, Too early = under 100. Gas &amp; diesel is split out of Economics because it is what the live bot trades.</p>
+        <div class="tbl short"><table>
+          <thead><tr><th>Category</th><th class="n">Settled bets</th><th class="n">Events</th><th class="n">Win %</th><th class="n">Profit</th><th class="n">Per dollar</th><th class="n">Open now</th><th>Data</th></tr></thead>
+          <tbody id="cats"></tbody></table></div>
       </div>
       <div class="card">
         <h3>Biggest recent practice losses</h3>
@@ -235,19 +237,15 @@ footer{color:var(--muted);font-size:12px}
       cell(tr, r.roi_pct === '' ? '' : spct(N(r.roi_pct)), 'n', r.roi_pct === '' ? 0 : Math.sign(N(r.roi_pct)));
     });
 
-    const g = {};
-    op.filter((r) => r.strategy === 'Fade long shots').forEach((r) => { const k = r.category || 'Other'; g[k] = g[k] || {k, e: 0, c: 0}; g[k].e += N(r.entries); g[k].c += N(r.cost); });
-    const cats = Object.values(g).sort((a, b) => b.e - a.e); const mx = d3.max(cats, (c) => c.e) || 1;
-    const cb = document.getElementById('cats'); cb.replaceChildren();
-    cats.forEach((c) => {
-      const row = document.createElement('div'); row.className = 'bar';
-      const a = document.createElement('span'); a.textContent = c.k;
-      const t = document.createElement('div'); t.className = 'track'; const f = document.createElement('div'); f.className = 'fill'; f.style.width = (100 * c.e / mx) + '%'; t.appendChild(f);
-      const b = document.createElement('span'); b.className = 'r'; b.textContent = cnt(c.e);
-      const m = document.createElement('span'); m.className = 'r'; m.textContent = '$' + d3.format(',.0f')(c.c);
-      row.append(a, t, b, m); cb.appendChild(row);
+    fill('cats', d.categories || [], (tr, r) => {
+      cell(tr, r.category); cell(tr, cnt(N(r.settled)), 'n'); cell(tr, cnt(N(r.events)), 'n');
+      cell(tr, r.win_pct === '' ? '' : pct(N(r.win_pct)), 'n'); cell(tr, signed(N(r.pnl)), 'n', Math.sign(N(r.pnl)));
+      cell(tr, r.roi_pct === '' ? '' : spct(N(r.roi_pct)), 'n', r.roi_pct === '' ? 0 : Math.sign(N(r.roi_pct)));
+      cell(tr, cnt(N(r.open)), 'n');
+      const td = document.createElement('td'); const sp = document.createElement('span');
+      sp.className = 'pill ' + (r.confidence === 'Enough data' ? 'won' : r.confidence === 'Getting there' ? 'warnp' : 'open');
+      sp.textContent = r.confidence; td.appendChild(sp); tr.appendChild(td);
     });
-
     fill('losses', (d.recent_losses || []).slice().sort((a, b) => N(a.pnl) - N(b.pnl)), (tr, r) => {
       cell(tr, r.settled_mt); cell(tr, r.ticker, 'mono'); cell(tr, r.category); cell(tr, Math.round(N(r.price) * 100) + '¢', 'n'); cell(tr, signed(N(r.pnl)), 'n', Math.sign(N(r.pnl)));
     });
