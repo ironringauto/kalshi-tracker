@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Kalshi Bot Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column, real money first, practice below; cards in an auto-fit grid. */
+:root{
+  --bg:#f6f7f4; --panel:#ffffff; --fg:#1b2420; --muted:#5d6b64; --line:#dfe4df;
+  --accent:#1f7a5a; --accent2:#c06a1f; --muted-line:#a9b4ae; --c3:#5b5fc7; --c4:#b0417c;
+  --ok:#1f7a4a; --bad:#b4372f; --warn:#a76400; --grid:#eceFeb;
+  --serif:"Fraunces",Georgia,serif; --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#111614; --panel:#18201d; --fg:#e7ece9; --muted:#97a69f; --line:#2a3531;
+  --accent:#4fc193; --accent2:#e3984f; --muted-line:#5f6d67; --c3:#9a9df0; --c4:#e67fb5;
+  --ok:#5fd08f; --bad:#ef7a70; --warn:#e8b04d; --grid:#222b28; color-scheme:dark;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:32px}
+h1{font-family:var(--serif);font-weight:500;font-size:clamp(28px,4vw,38px);margin:0;letter-spacing:-.01em}
+.updated{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin-top:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.dot.stale{background:var(--warn)}
+.lede{display:flex;flex-direction:column;gap:4px;margin-top:12px}
+.lede p{margin:0;color:var(--muted);max-width:75ch;font-size:15px}
+.lede b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+section{display:flex;flex-direction:column;gap:14px}
+.sec-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px}
+h2{font-family:var(--serif);font-weight:500;font-size:22px;margin:0}
+.chip{font-size:11px;letter-spacing:.04em;text-transform:uppercase;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.chip.real{color:var(--accent2);border-color:currentColor}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.tile .lab{color:var(--muted);font-size:12px}
+.tile .big{font-family:var(--serif);font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile .sub{color:var(--muted);font-size:12px}
+.tile .sub b{color:var(--fg);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card.wide{grid-column:1/-1}
+h3{margin:0;font-size:15px;font-weight:600}
+.note{margin:0;color:var(--muted);font-size:12px;max-width:80ch}
+.tbl{overflow:auto;max-height:420px}
+.tbl.short{max-height:none}
+table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+th{position:sticky;top:0;background:var(--panel);text-align:left;font-weight:500;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.n{text-align:right;white-space:nowrap}
+.mono{font-family:var(--mono);font-size:11.5px;white-space:nowrap}
+td.wrap{min-width:240px;max-width:460px}
+#losses td:first-child,#research td:nth-child(2),#research td:first-child{white-space:nowrap}
+.pill{display:inline-block;padding:0 8px;border-radius:999px;font-size:11px;border:1px solid currentColor}
+.pill.open{color:var(--muted)} .pill.won{color:var(--ok)} .pill.lost{color:var(--bad)}
+.pos{color:var(--ok)} .neg{color:var(--bad)}
+.chart{position:relative;min-height:290px}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:6px 9px;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;z-index:2}
+.tip .d{color:var(--muted);margin-bottom:2px}
+.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+.bars{display:flex;flex-direction:column;gap:6px}
+.bar{display:grid;grid-template-columns:110px 1fr 44px 64px;align-items:center;gap:8px;font-size:12px;font-variant-numeric:tabular-nums}
+.track{height:12px;background:var(--grid);border-radius:3px;overflow:hidden}
+.fill{height:100%;border-radius:3px;background:var(--accent)}
+.bar .r{text-align:right;color:var(--muted)}
+input[type=search]{font:inherit;font-size:12.5px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);max-width:320px}
+input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.err{color:var(--bad);font-size:13px}
+footer{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Kalshi Bot Tracker</h1>
+    <div class="updated"><span class="dot" id="dot"></span><span id="updated">Loading…</span></div>
+    <div class="lede">
+      <p>Real money: <b id="l-open">—</b> gas bets open with <b id="l-risk">—</b> on the line against a <b>$10</b> cap. Next settlement: <b id="l-next">—</b>.</p>
+      <p>Practice: the gas-only slice the live bot copies is <b id="l-gas">—</b> on paper (<b id="l-gasroi">—</b> per dollar), out of <b id="l-all">—</b> for all long-shot fades.</p>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head"><h2>Real money</h2><span class="chip real">Live account</span></div>
+    <div class="tiles">
+      <div class="tile"><span class="lab">Open bets</span><span class="big" id="t-open">—</span><span class="sub">of <b id="t-bets">—</b> placed so far</span></div>
+      <div class="tile"><span class="lab">Money on the line</span><span class="big" id="t-risk">—</span><span class="sub">Cap is <b>$10</b></span></div>
+      <div class="tile"><span class="lab">Profit if every open bet wins</span><span class="big" id="t-max">—</span><span class="sub">After fees</span></div>
+      <div class="tile"><span class="lab">Settled profit / loss</span><span class="big" id="t-pnl">—</span><span class="sub"><b id="t-won">—</b> won, <b id="t-lost">—</b> lost</span></div>
+    </div>
+    <div class="card">
+      <h3>Live positions</h3>
+      <p class="note">Each bet is 1 contract of NO: it pays $1 if the price is not above the strike when AAA posts the next day's average. Profit is after fees.</p>
+      <div class="tbl short"><table>
+        <thead><tr><th>Market</th><th class="n">Strike</th><th>Settles</th><th class="n">Cost</th><th class="n">Profit if it wins</th><th>Status</th><th class="n">Result</th></tr></thead>
+        <tbody id="live"></tbody></table></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Practice</h2><span class="chip">Paper trading, 10 contracts per entry</span></div>
+    <div class="tiles">
+      <div class="tile"><span class="lab">Gas-only slice</span><span class="big" id="p-gas">—</span><span class="sub"><b id="p-gaswin">—</b> wins, <b id="p-gasroi">—</b> per dollar</span></div>
+      <div class="tile"><span class="lab">All long-shot fades</span><span class="big" id="p-all">—</span><span class="sub"><b id="p-allwin">—</b> wins, <b id="p-allroi">—</b> per dollar</span></div>
+      <div class="tile"><span class="lab">Open practice entries</span><span class="big" id="p-open">—</span><span class="sub"><b id="p-opencost">—</b> pretend money in</span></div>
+      <div class="tile"><span class="lab">Research picks</span><span class="big" id="p-res">—</span><span class="sub"><b id="p-resopen">—</b> still open</span></div>
+    </div>
+    <div class="grid">
+      <div class="card wide">
+        <h3>Running profit by strategy</h3>
+        <p class="note">Paper profit added up by the day each bet settled (Mountain time). The green line is the gas slice the live bot copies.</p>
+        <div class="chart" id="chart"></div>
+      </div>
+      <div class="card wide">
+        <h3>Strategy scorecard</h3>
+        <p class="note">Buying at the posted price, the same way the live bot trades. Per dollar is profit divided by money spent on settled bets.</p>
+        <div class="tbl short"><table>
+          <thead><tr><th>Strategy</th><th>Role</th><th class="n">Settled</th><th class="n">Open</th><th class="n">Win %</th><th class="n">Profit</th><th class="n">Per dollar</th></tr></thead>
+          <tbody id="strat"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h3>Open long-shot fades by category</h3>
+        <p class="note">Entries still waiting to settle, with the pretend money in each.</p>
+        <div class="bars" id="cats"></div>
+      </div>
+      <div class="card">
+        <h3>Biggest recent practice losses</h3>
+        <p class="note">Long-shot fades that lost in the last 3 days. These are the hits that pull the total down.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Settled (MT)</th><th>Market</th><th>Category</th><th class="n">Paid</th><th class="n">Loss</th></tr></thead>
+          <tbody id="losses"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h3>Research picks</h3>
+        <p class="note">Picks researched and queued for the bot to paper-trade.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Pick</th><th>Game</th><th>Entry</th><th>Confidence</th><th>Result</th><th>Why</th></tr></thead>
+          <tbody id="research"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h3>Crypto and markets backtest</h3>
+        <p class="note">Long-shot fades replayed on the last 60 days of closed markets. Still filling in. Events is the honest sample size.</p>
+        <div class="tbl short"><table>
+          <thead><tr><th>Series</th><th>Long-shot price</th><th class="n">Trades</th><th class="n">Events</th><th class="n">Win %</th><th class="n">Per dollar</th></tr></thead>
+          <tbody id="bt"></tbody></table></div>
+      </div>
+      <div class="card wide">
+        <h3>All open practice positions</h3>
+        <p class="note">One row per market and side. Entries counts how many times a strategy bought it.</p>
+        <input type="search" id="q" placeholder="Search market, strategy or category" aria-label="Search open practice positions">
+        <div class="tbl"><table>
+          <thead><tr><th>Strategy</th><th>Market</th><th>Category</th><th>Side</th><th class="n">Entries</th><th class="n">Avg price</th><th class="n">Money in</th><th>First entered (UTC)</th></tr></thead>
+          <tbody id="open"></tbody></table></div>
+      </div>
+    </div>
+  </section>
+  <footer>Updated automatically from the bot every 10 minutes while the Mac is awake. This page reloads its numbers every 5 minutes.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+(function () {
+  const M = '−';
+  const N = (x) => { const v = Number(x); return Number.isFinite(v) ? v : 0; };
+  const money = (v) => (v < 0 ? M + '$' : '$') + d3.format(',.2f')(Math.abs(v));
+  const signed = (v) => (v > 0 ? '+$' : v < 0 ? M + '$' : '$') + d3.format(',.2f')(Math.abs(v));
+  const pct = (v) => d3.format('.1f')(v) + '%';
+  const spct = (v) => (v > 0 ? '+' : v < 0 ? M : '') + d3.format('.2f')(Math.abs(v)) + '%';
+  const cnt = (v) => d3.format(',')(v);
+  const MON = {JAN:'Jan',FEB:'Feb',MAR:'Mar',APR:'Apr',MAY:'May',JUN:'Jun',JUL:'Jul',AUG:'Aug',SEP:'Sep',OCT:'Oct',NOV:'Nov',DEC:'Dec'};
+  const settleLabel = (c) => c ? (MON[c.slice(2, 5)] || c.slice(2, 5)) + ' ' + Number(c.slice(5)) : '';
+  let DATA = null, Q = '';
+
+  function set(id, text, sign) {
+    const el = document.getElementById(id); if (!el) return;
+    el.textContent = text; el.classList.remove('pos', 'neg');
+    if (sign > 0) el.classList.add('pos'); if (sign < 0) el.classList.add('neg');
+  }
+  function cell(tr, text, cls, sign) {
+    const td = document.createElement('td'); if (cls) td.className = cls;
+    td.textContent = text; if (sign > 0) td.classList.add('pos'); if (sign < 0) td.classList.add('neg');
+    tr.appendChild(td); return td;
+  }
+  function pillCell(tr, v) {
+    const td = document.createElement('td'); const s = document.createElement('span');
+    s.className = 'pill ' + (v === 'Won' ? 'won' : v === 'Lost' ? 'lost' : 'open'); s.textContent = v;
+    td.appendChild(s); tr.appendChild(td);
+  }
+  function fill(id, rows, fn) {
+    const tb = document.getElementById(id); tb.replaceChildren();
+    rows.forEach((r) => { const tr = document.createElement('tr'); fn(tr, r); tb.appendChild(tr); });
+  }
+
+  function render() {
+    const d = DATA; if (!d) return;
+    const upd = new Date(d.updated_utc);
+    const mins = Math.round((Date.now() - upd) / 60000);
+    const ago = mins < 1 ? 'just now' : mins < 60 ? mins + ' min ago' : mins < 1440 ? Math.round(mins / 60) + ' h ago' : Math.round(mins / 1440) + ' days ago';
+    set('updated', 'Updated ' + ago + ' (' + upd.toLocaleString([], {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) + ')' + (mins > 40 ? ' · the Mac may be asleep or offline' : ''));
+    document.getElementById('dot').classList.toggle('stale', mins > 40);
+
+    // real money
+    const live = d.live || [];
+    const open = live.filter((r) => r.status === 'Open'), done = live.filter((r) => r.status !== 'Open');
+    const risk = open.reduce((s, r) => s + N(r.cost), 0), maxp = open.reduce((s, r) => s + N(r.max_profit), 0);
+    const spnl = done.reduce((s, r) => s + N(r.pnl), 0);
+    const next = open.map((r) => r.settles).sort()[0];
+    set('l-open', cnt(open.length)); set('l-risk', money(risk)); set('l-next', next ? settleLabel(next) : 'none open');
+    set('t-open', cnt(open.length)); set('t-bets', cnt(live.length)); set('t-risk', money(risk)); set('t-max', money(maxp));
+    set('t-pnl', signed(spnl), Math.sign(spnl)); set('t-won', cnt(done.filter((r) => r.status === 'Won').length)); set('t-lost', cnt(done.filter((r) => r.status === 'Lost').length));
+    fill('live', live, (tr, r) => {
+      cell(tr, r.market); cell(tr, '$' + N(r.strike).toFixed(3), 'n'); cell(tr, settleLabel(r.settles));
+      cell(tr, money(N(r.cost)), 'n'); cell(tr, money(N(r.max_profit)), 'n'); pillCell(tr, r.status);
+      cell(tr, r.pnl === '' ? '' : signed(N(r.pnl)), 'n', r.pnl === '' ? 0 : Math.sign(N(r.pnl)));
+    });
+
+    // practice
+    const S = {}; (d.strategies || []).forEach((r) => { S[r.strategy] = r; });
+    const gas = S['Fade long shots: gas only'] || {}, all = S['Fade long shots'] || {}, res = S['Claude research picks'] || {};
+    set('l-gas', signed(N(gas.pnl)), Math.sign(N(gas.pnl))); set('l-gasroi', spct(N(gas.roi_pct)), Math.sign(N(gas.roi_pct)));
+    set('l-all', signed(N(all.pnl)), Math.sign(N(all.pnl)));
+    set('p-gas', signed(N(gas.pnl)), Math.sign(N(gas.pnl))); set('p-gaswin', gas.win_pct ? pct(N(gas.win_pct)) : '—'); set('p-gasroi', spct(N(gas.roi_pct)), Math.sign(N(gas.roi_pct)));
+    set('p-all', signed(N(all.pnl)), Math.sign(N(all.pnl))); set('p-allwin', all.win_pct ? pct(N(all.win_pct)) : '—'); set('p-allroi', spct(N(all.roi_pct)), Math.sign(N(all.roi_pct)));
+    set('p-res', cnt(N(res.entries))); set('p-resopen', cnt(N(res.open)));
+    const op = d.open_practice || [];
+    set('p-open', cnt(op.reduce((s, r) => s + N(r.entries), 0))); set('p-opencost', money(op.reduce((s, r) => s + N(r.cost), 0)));
+
+    fill('strat', d.strategies || [], (tr, r) => {
+      cell(tr, r.strategy); cell(tr, r.role); cell(tr, cnt(N(r.settled)), 'n'); cell(tr, cnt(N(r.open)), 'n');
+      cell(tr, r.win_pct === '' ? '' : pct(N(r.win_pct)), 'n'); cell(tr, signed(N(r.pnl)), 'n', Math.sign(N(r.pnl)));
+      cell(tr, r.roi_pct === '' ? '' : spct(N(r.roi_pct)), 'n', r.roi_pct === '' ? 0 : Math.sign(N(r.roi_pct)));
+    });
+
+    const g = {};
+    op.filter((r) => r.strategy === 'Fade long shots').forEach((r) => { const k = r.category || 'Other'; g[k] = g[k] || {k, e: 0, c: 0}; g[k].e += N(r.entries); g[k].c += N(r.cost); });
+    const cats = Object.values(g).sort((a, b) => b.e - a.e); const mx = d3.max(cats, (c) => c.e) || 1;
+    const cb = document.getElementById('cats'); cb.replaceChildren();
+    cats.forEach((c) => {
+      const row = document.createElement('div'); row.className = 'bar';
+      const a = document.createElement('span'); a.textContent = c.k;
+      const t = document.createElement('div'); t.className = 'track'; const f = document.createElement('div'); f.className = 'fill'; f.style.width = (100 * c.e / mx) + '%'; t.appendChild(f);
+      const b = document.createElement('span'); b.className = 'r'; b.textContent = cnt(c.e);
+      const m = document.createElement('span'); m.className = 'r'; m.textContent = '$' + d3.format(',.0f')(c.c);
+      row.append(a, t, b, m); cb.appendChild(row);
+    });
+
+    fill('losses', (d.recent_losses || []).slice().sort((a, b) => N(a.pnl) - N(b.pnl)), (tr, r) => {
+      cell(tr, r.settled_mt); cell(tr, r.ticker, 'mono'); cell(tr, r.category); cell(tr, Math.round(N(r.price) * 100) + '¢', 'n'); cell(tr, signed(N(r.pnl)), 'n', Math.sign(N(r.pnl)));
+    });
+    fill('research', d.research || [], (tr, r) => {
+      cell(tr, r.pick); cell(tr, r.game_date); cell(tr, r.status); cell(tr, r.confidence); pillCell(tr, r.result); cell(tr, r.reason, 'wrap');
+    });
+    fill('bt', d.backtest || [], (tr, r) => {
+      cell(tr, r.series); cell(tr, r.band); cell(tr, cnt(N(r.trades)), 'n'); cell(tr, cnt(N(r.events)), 'n'); cell(tr, pct(N(r.win_pct)), 'n'); cell(tr, spct(N(r.roi_pct)), 'n', Math.sign(N(r.roi_pct)));
+    });
+    renderOpen(); renderChart();
+  }
+
+  function renderOpen() {
+    const op = (DATA && DATA.open_practice) || [];
+    const rows = Q ? op.filter((r) => (r.ticker + ' ' + r.strategy + ' ' + r.category + ' ' + r.series).toLowerCase().includes(Q)) : op;
+    fill('open', rows, (tr, r) => {
+      cell(tr, r.strategy); cell(tr, r.ticker, 'mono'); cell(tr, r.category); cell(tr, r.side); cell(tr, cnt(N(r.entries)), 'n');
+      cell(tr, (Math.round(N(r.avg_price) * 1000) / 10) + '¢', 'n'); cell(tr, money(N(r.cost)), 'n'); cell(tr, r.first_entered_utc);
+    });
+  }
+  document.getElementById('q').addEventListener('input', (e) => { Q = e.target.value.trim().toLowerCase(); renderOpen(); });
+
+  function renderChart() {
+    const el = document.getElementById('chart'); el.replaceChildren();
+    const cs = getComputedStyle(document.documentElement); const v = (n) => cs.getPropertyValue(n).trim();
+    const order = [{name: 'Fade long shots', color: v('--muted-line'), w: 2}, {name: 'Gas only', color: v('--accent'), w: 2.75},
+                   {name: 'Sportsbook gaps', color: v('--c3'), w: 2}, {name: 'Research picks', color: v('--c4'), w: 2}];
+    const parse = (s) => new Date(s + 'T12:00:00Z');
+    const series = order.map((o) => ({...o, pts: (DATA.daily || []).filter((r) => r.line === o.name).map((r) => ({date: parse(r.date), v: N(r.total_pnl)})).sort((a, b) => a.date - b.date)})).filter((s) => s.pts.length);
+    if (!series.length) return;
+    const all = series.flatMap((s) => s.pts);
+    const W = Math.max(280, el.clientWidth || 600), H = 290;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).style('display', 'block');
+    const ext = d3.extent(all, (p) => p.v); ext[0] = Math.min(0, ext[0]); ext[1] = Math.max(0, ext[1]);
+    const y0 = d3.scaleLinear(ext, [H - 28, 10]).nice(); const ticks = y0.ticks(5);
+    const sf = (t) => (t < 0 ? M + '$' : '$') + d3.format(',.0f')(Math.abs(t));
+    const endLab = (s) => { const l = s.pts[s.pts.length - 1].v; return s.name + ' ' + (l >= 0 ? '+' : M) + '$' + d3.format(',.0f')(Math.abs(l)); };
+    const meas = (t) => { const n = svg.append('text').attr('font-size', 11).text(t); const w = n.node().getComputedTextLength(); n.remove(); return w; };
+    const narrow = W < 560;
+    const m = {l: (d3.max(ticks.map((t) => meas(sf(t)))) || 30) + 10, r: narrow ? 10 : (d3.max(series.map((s) => meas(endLab(s)))) || 60) + 16, t: 10, b: 28};
+    const x = d3.scaleUtc(d3.extent(all, (p) => p.date), [m.l, W - m.r]); const y = d3.scaleLinear(y0.domain(), [H - m.b, m.t]);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', (t) => t === 0 ? v('--muted-line') : v('--grid'));
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('x', m.l - 6).attr('y', y).attr('dy', '0.32em').attr('text-anchor', 'end').attr('font-size', 11).attr('fill', v('--muted')).text(sf);
+    svg.append('g').selectAll('text').data(x.ticks(Math.max(2, Math.floor((W - m.l - m.r) / 90)))).join('text').attr('x', x).attr('y', H - 8).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', v('--muted')).text(d3.utcFormat('%b %-d'));
+    const line = d3.line().x((p) => x(p.date)).y((p) => y(p.v));
+    series.forEach((s) => {
+      svg.append('path').datum(s.pts).attr('d', line).attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', s.w).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+      const l = s.pts[s.pts.length - 1]; svg.append('circle').attr('cx', x(l.date)).attr('cy', y(l.v)).attr('r', 3).attr('fill', s.color);
+    });
+    if (!narrow) {
+      const labs = series.map((s) => ({s, y: y(s.pts[s.pts.length - 1].v)})).sort((a, b) => a.y - b.y);
+      for (let i = 1; i < labs.length; i++) if (labs[i].y - labs[i - 1].y < 14) labs[i].y = labs[i - 1].y + 14;
+      labs.forEach((l) => svg.append('text').attr('x', W - m.r + 8).attr('y', l.y).attr('dy', '0.32em').attr('font-size', 11).attr('fill', v('--fg')).text(endLab(l.s)));
+    } else {
+      const leg = d3.select(el).append('div').style('display', 'flex').style('flex-wrap', 'wrap').style('gap', '4px 12px').style('font-size', '11px').style('margin-top', '6px');
+      series.forEach((s) => { const it = leg.append('span'); it.append('i').style('display', 'inline-block').style('width', '10px').style('height', '3px').style('margin-right', '5px').style('vertical-align', 'middle').style('background', s.color); it.append('span').text(endLab(s)); });
+    }
+    const tip = d3.select(el).append('div').attr('class', 'tip').style('display', 'none');
+    const rule = svg.append('line').attr('y1', m.t).attr('y2', H - m.b).attr('stroke', v('--muted-line')).attr('stroke-dasharray', '3 3').style('display', 'none');
+    const dates = Array.from(new Set(all.map((p) => +p.date))).sort((a, b) => a - b).map((t) => new Date(t));
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('mousemove', (ev) => {
+        const dt = dates[d3.bisector((q) => q).center(dates, x.invert(d3.pointer(ev)[0]))];
+        rule.attr('x1', x(dt)).attr('x2', x(dt)).style('display', null);
+        tip.html(''); tip.append('div').attr('class', 'd').text(d3.utcFormat('%b %-d')(dt));
+        series.forEach((s) => { const p = s.pts.filter((q) => q.date <= dt).pop(); if (!p) return; const r = tip.append('div'); r.append('i').style('background', s.color); r.append('span').text(s.name + '  ' + (p.v >= 0 ? '+' : M) + '$' + d3.format(',.2f')(Math.abs(p.v))); });
+        const bw = el.clientWidth, sx = x(dt) * (bw / W); const tw = tip.style('display', null).node().offsetWidth;
+        tip.style('left', Math.max(0, Math.min(bw - tw, sx + 12)) + 'px').style('top', '8px');
+      })
+      .on('mouseleave', () => { tip.style('display', 'none'); rule.style('display', 'none'); });
+  }
+
+  async function load() {
+    try {
+      const r = await fetch('data.json?t=' + Date.now(), {cache: 'no-store'});
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      DATA = await r.json(); render();
+    } catch (e) {
+      if (!DATA) set('updated', 'No data yet. The Mac uploads it on its next 10-minute run.');
+    }
+  }
+  load(); setInterval(load, 5 * 60 * 1000);
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => DATA && renderChart(), 150); });
+  if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => DATA && renderChart());
+})();
+</script>
+</body>
+</html>
