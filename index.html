@@ -190,6 +190,16 @@ footer{color:var(--muted);font-size:12px}
   </section>
 
   <section>
+    <div class="sec-head"><h2>News desk</h2><span class="chip">Practice only, new Nov 5</span></div>
+    <div class="card">
+      <p class="note">A research scan reads the news a few times a day and names specific Kalshi markets it thinks the news has mispriced: economy, politics, energy, crypto, world events. The bot paper-buys each idea only at or below the idea's price limit, and every call is graded when the market settles. It trades for real only if it beats the market over a few hundred ideas.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Added (UTC)</th><th>Market</th><th>Side</th><th class="n">Max price</th><th>Category</th><th>Confidence</th><th>Status</th><th>Result</th><th>Why</th></tr></thead>
+        <tbody id="news"></tbody></table></div>
+    </div>
+  </section>
+
+  <section>
     <div class="sec-head"><h2>Research lab</h2><span class="chip">Practice only, tested on every settled paper gas bet</span></div>
     <div class="tiles">
       <div class="tile"><span class="lab">Wholesale gasoline (RBOB)</span><span class="big" id="w-close">—</span><span class="sub">3-day change <b id="w-3d">—</b>, as of <b id="w-asof">—</b></span></div>
@@ -346,6 +356,13 @@ footer{color:var(--muted);font-size:12px}
       cell(tr, (N(r.edge) >= 0 ? '+' : M) + Math.abs(N(r.edge) * 100).toFixed(1) + '\u00a2', 'n', Math.sign(N(r.edge)));
     });
     ['BTC', 'ETH'].forEach((c) => coinChart(c, CF[c]));
+
+    fill('news', d.news || [], (tr, r) => {
+      cell(tr, r.added_utc); cell(tr, r.ticker, 'mono'); cell(tr, r.side); cell(tr, r.max_price ? Math.round(N(r.max_price) * 100) + '\u00a2' : '', 'n');
+      cell(tr, r.category); cell(tr, r.confidence); cell(tr, r.status);
+      if (r.result) pillCell(tr, r.result); else cell(tr, '');
+      cell(tr, r.thesis, 'long');
+    });
 
     // real money
     const live = d.live || [];
