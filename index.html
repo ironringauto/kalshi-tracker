@@ -106,9 +106,9 @@ footer{color:var(--muted);font-size:12px}
     </div>
     <div class="card">
       <h3>Live positions</h3>
-      <p class="note">Each bet is NO on "will the price be above the strike". It pays $1 per contract if AAA's posted average is at or below the strike. Paid is the price per contract; now worth is what selling it right now would bring. Times are Mountain time.</p>
+      <p class="note">Each bet is NO on "will the price be above the strike". It pays $1 per contract if AAA's posted average is at or below the strike. Paid is the price per contract; now worth is what selling it right now would bring. Price move since entry is how many cents the market has moved our way (+) or against us (−); after settlement it uses the last price before trading closed, the "closing line." Review grades each bet once it settles. Times are Mountain time.</p>
       <div class="tbl short"><table>
-        <thead><tr><th>Market</th><th class="n">Strike</th><th>Bought</th><th class="n">Paid</th><th class="n">Contracts</th><th class="n">Cost</th><th class="n">Now worth</th><th class="n">Profit if it wins</th><th>Trading closes</th><th>Result expected</th><th>Status</th><th class="n">Result</th></tr></thead>
+        <thead><tr><th>Market</th><th class="n">Strike</th><th>Bought</th><th class="n">Paid</th><th class="n">Contracts</th><th class="n">Cost</th><th class="n">Now worth</th><th class="n">Profit if it wins</th><th>Trading closes</th><th>Result expected</th><th>Status</th><th class="n">Result</th><th class="n">Price move since entry</th><th>Review</th></tr></thead>
         <tbody id="live"></tbody></table></div>
     </div>
   </section>
@@ -172,7 +172,37 @@ footer{color:var(--muted);font-size:12px}
       </div>
     </div>
   </section>
-  <footer>Updated automatically from the bot every 10 minutes while the Mac is awake. This page reloads its numbers every 5 minutes.</footer>
+  <section>
+    <div class="sec-head"><h2>Research lab</h2><span class="chip">Practice only, tested on every settled paper gas bet</span></div>
+    <div class="tiles">
+      <div class="tile"><span class="lab">Wholesale gasoline (RBOB)</span><span class="big" id="w-close">—</span><span class="sub">3-day change <b id="w-3d">—</b>, as of <b id="w-asof">—</b></span></div>
+      <div class="tile"><span class="lab">Today's news risk</span><span class="big" id="n-risk">—</span><span class="sub" id="n-sub">Morning news scan</span></div>
+    </div>
+    <div class="grid">
+      <div class="card wide">
+        <h3>Entry filters: would skipping these bets have helped?</h3>
+        <p class="note">Each rule is replayed on every settled paper gas bet it has data for. A rule helps only if the bets it skips lost money overall. Skipping long shots that would have won costs profit, so a rule must catch more losses than it gives up. Wholesale rules use what was known the day before entry. A rule needs a few hundred bets and a clear gain before it goes near real money.</p>
+        <div class="tbl short"><table>
+          <thead><tr><th>Rule</th><th class="n">Bets checked</th><th class="n">Would skip</th><th class="n">Losses caught</th><th class="n">Profit of skipped bets</th><th class="n">Per dollar before</th><th class="n">Per dollar after</th><th>Verdict</th></tr></thead>
+          <tbody id="filters"></tbody></table></div>
+      </div>
+      <div class="card wide">
+        <h3>Exit rules: sell early or hold to the end?</h3>
+        <p class="note">Uses Kalshi's hourly price history for each paper bet. Selling means selling the NO contract at the market price, paying the fee again. Losers cut are bets that would have lost anyway; winners sold early are the cost of the rule. Builds up a little each run as price history is downloaded.</p>
+        <div class="tbl short"><table>
+          <thead><tr><th>Rule</th><th class="n">Bets checked</th><th class="n">Times it sold</th><th class="n">Losers cut</th><th class="n">Winners sold early</th><th class="n">Total profit</th><th class="n">vs holding</th></tr></thead>
+          <tbody id="exits"></tbody></table></div>
+      </div>
+      <div class="card wide">
+        <h3>News risk flags</h3>
+        <p class="note">A morning research scan for things that push gas prices up: Gulf hurricanes, refinery or pipeline outages, state gas-tax changes, crude oil spikes. Paper only: flags are graded against what happened before they are allowed to block a real bet.</p>
+        <div class="tbl short"><table>
+          <thead><tr><th>Area</th><th>Flag</th></tr></thead>
+          <tbody id="flags"></tbody></table></div>
+      </div>
+    </div>
+  </section>
+  <footer>Updated automatically by the bot on its server every 10 minutes. This page reloads its numbers every 5 minutes.</footer>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
@@ -245,6 +275,33 @@ footer{color:var(--muted);font-size:12px}
     else if (warn) { hs.textContent = warn + ' running late'; hs.className = 'chip'; hs.style.color = 'var(--warn)'; hs.style.borderColor = 'currentColor'; }
     else { hs.textContent = 'All parts checking in'; hs.className = 'chip'; hs.style.color = 'var(--ok)'; hs.style.borderColor = 'currentColor'; }
 
+    // research lab
+    const W = d.wholesale || {};
+    set('w-close', W.close ? '$' + N(W.close).toFixed(3) : 'Pending');
+    const w3 = W.chg3 === undefined || W.chg3 === null ? null : N(W.chg3) * 100;
+    set('w-3d', w3 === null ? '—' : (w3 > 0 ? '+' : w3 < 0 ? M : '') + Math.abs(w3).toFixed(1) + '\u00a2', w3 === null ? 0 : -Math.sign(w3));
+    set('w-asof', W.last || '—');
+    const F = d.risk_flags || {};
+    set('n-risk', F.national_risk ? F.national_risk[0].toUpperCase() + F.national_risk.slice(1) : 'Pending');
+    set('n-sub', F.date ? 'Scan for ' + F.date : 'First scan runs tomorrow morning');
+    const fr = [];
+    if (F.date) { fr.push({a: 'National', t: (F.national_risk || '') + (F.national_reason ? ' \u2014 ' + F.national_reason : '')}); Object.entries(F.states || {}).forEach(([k, v]) => fr.push({a: k, t: v})); }
+    fill('flags', fr, (tr, r) => { cell(tr, r.a); cell(tr, r.t, 'long'); });
+    fill('filters', d.gas_filters || [], (tr, r) => {
+      cell(tr, r.rule).title = r.how || ''; cell(tr, cnt(N(r.bets_checked)), 'n'); cell(tr, cnt(N(r.skipped)), 'n');
+      cell(tr, cnt(N(r.losses_caught)) + ' of ' + cnt(N(r.losses_total)), 'n');
+      cell(tr, signed(N(r.skipped_pnl)), 'n', Math.sign(N(r.skipped_pnl)));
+      cell(tr, spct(N(r.roi_before)), 'n'); cell(tr, spct(N(r.roi_after)), 'n', Math.sign(N(r.roi_after) - N(r.roi_before)));
+      const td = document.createElement('td'); const sp = document.createElement('span');
+      sp.className = 'pill ' + (r.verdict === 'Would have helped' ? 'won' : r.verdict === 'Would have hurt' ? 'lost' : 'open');
+      sp.textContent = r.verdict; td.appendChild(sp); tr.appendChild(td);
+    });
+    fill('exits', d.gas_exits || [], (tr, r) => {
+      cell(tr, r.rule); cell(tr, cnt(N(r.bets_checked)), 'n'); cell(tr, cnt(N(r.exits)), 'n'); cell(tr, cnt(N(r.losers_cut)), 'n');
+      cell(tr, cnt(N(r.winners_sold_early)), 'n'); cell(tr, signed(N(r.pnl)), 'n', Math.sign(N(r.pnl)));
+      cell(tr, r.rule === 'Hold to settlement' ? '' : signed(N(r.vs_hold)), 'n', Math.sign(N(r.vs_hold)));
+    });
+
     // real money
     const live = d.live || [];
     const open = live.filter((r) => r.status === 'Open'), done = live.filter((r) => r.status !== 'Open');
@@ -269,6 +326,9 @@ footer{color:var(--muted);font-size:12px}
       cell(tr, r.result_expected_mt || '');
       pillCell(tr, r.status);
       cell(tr, r.pnl === '' ? '' : signed(N(r.pnl)), 'n', r.pnl === '' ? 0 : Math.sign(N(r.pnl)));
+      const cv = r.clv_cents === undefined || r.clv_cents === '' ? null : N(r.clv_cents);
+      cell(tr, cv === null ? '' : (cv > 0 ? '+' : cv < 0 ? M : '') + Math.abs(cv).toFixed(1) + '\u00a2', 'n', cv === null ? 0 : Math.sign(cv));
+      cell(tr, r.review || '');
     });
     set('t-next', (() => { const o = live.filter((r) => r.status === 'Open' && r.result_expected_mt).map((r) => r.result_expected_mt); return o.length ? o.sort()[0] : (next ? settleLabel(next) : '—'); })());
 
