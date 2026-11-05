@@ -51,6 +51,7 @@ h3{margin:0;font-size:15px;font-weight:600}
 table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
 th{position:sticky;top:0;background:var(--panel);text-align:left;font-weight:500;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+#live td{white-space:nowrap}
 .n{text-align:right;white-space:nowrap}
 .mono{font-family:var(--mono);font-size:11.5px;white-space:nowrap}
 td.wrap{min-width:240px;max-width:460px}
@@ -89,14 +90,14 @@ footer{color:var(--muted);font-size:12px}
     <div class="tiles">
       <div class="tile"><span class="lab">Open bets</span><span class="big" id="t-open">—</span><span class="sub">of <b id="t-bets">—</b> placed so far</span></div>
       <div class="tile"><span class="lab">Money on the line</span><span class="big" id="t-risk">—</span><span class="sub">Cap is <b>$10</b></span></div>
-      <div class="tile"><span class="lab">Profit if every open bet wins</span><span class="big" id="t-max">—</span><span class="sub">After fees</span></div>
+      <div class="tile"><span class="lab">Profit if every open bet wins</span><span class="big" id="t-max">—</span><span class="sub">After fees. Results expected <b id="t-next">—</b></span></div>
       <div class="tile"><span class="lab">Settled profit / loss</span><span class="big" id="t-pnl">—</span><span class="sub"><b id="t-won">—</b> won, <b id="t-lost">—</b> lost</span></div>
     </div>
     <div class="card">
       <h3>Live positions</h3>
-      <p class="note">Each bet is 1 contract of NO: it pays $1 if the price is not above the strike when AAA posts the next day's average. Profit is after fees.</p>
+      <p class="note">Each bet is NO on "will the price be above the strike". It pays $1 per contract if AAA's posted average is at or below the strike. Paid is the price per contract; now worth is what selling it right now would bring. Times are Mountain time.</p>
       <div class="tbl short"><table>
-        <thead><tr><th>Market</th><th class="n">Strike</th><th>Settles</th><th class="n">Cost</th><th class="n">Profit if it wins</th><th>Status</th><th class="n">Result</th></tr></thead>
+        <thead><tr><th>Market</th><th class="n">Strike</th><th>Bought</th><th class="n">Paid</th><th class="n">Contracts</th><th class="n">Cost</th><th class="n">Now worth</th><th class="n">Profit if it wins</th><th>Trading closes</th><th>Result expected</th><th>Status</th><th class="n">Result</th></tr></thead>
         <tbody id="live"></tbody></table></div>
     </div>
   </section>
@@ -124,9 +125,9 @@ footer{color:var(--muted);font-size:12px}
       </div>
       <div class="card wide">
         <h3>Long-shot fades by category</h3>
-        <p class="note">Same rules in every category: the bot takes every market that qualifies, so the counts differ only because Kalshi lists more of some kinds. What makes the comparison fair is enough independent events per category. Events are distinct settlement days or games; several strikes on the same day count once. Enough data = 300+ events, Getting there = 100+, Too early = under 100. Gas &amp; diesel is split out of Economics because it is what the live bot trades.</p>
+        <p class="note">Same rules in every category: the bot takes every market that qualifies, so the counts differ only because Kalshi lists more of some kinds. What makes the comparison fair is enough independent events per category. Events are distinct settlement days or games; several strikes on the same day count once. Enough data = 300+ events, Getting there = 100+, Too early = under 100. The bot keeps paper-testing every category automatically; Enough data by is the date each one should reach 300 at its pace over the last two weeks. Gas &amp; diesel is split out of Economics because it is what the live bot trades.</p>
         <div class="tbl short"><table>
-          <thead><tr><th>Category</th><th class="n">Settled bets</th><th class="n">Events</th><th class="n">Win %</th><th class="n">Profit</th><th class="n">Per dollar</th><th class="n">Open now</th><th>Data</th></tr></thead>
+          <thead><tr><th>Category</th><th class="n">Settled bets</th><th class="n">Events</th><th class="n">Win %</th><th class="n">Profit</th><th class="n">Per dollar</th><th class="n">Open now</th><th>Data</th><th class="n">New events / week</th><th>Enough data by</th></tr></thead>
           <tbody id="cats"></tbody></table></div>
       </div>
       <div class="card">
@@ -215,10 +216,22 @@ footer{color:var(--muted);font-size:12px}
     set('t-open', cnt(open.length)); set('t-bets', cnt(live.length)); set('t-risk', money(risk)); set('t-max', money(maxp));
     set('t-pnl', signed(spnl), Math.sign(spnl)); set('t-won', cnt(done.filter((r) => r.status === 'Won').length)); set('t-lost', cnt(done.filter((r) => r.status === 'Lost').length));
     fill('live', live, (tr, r) => {
-      cell(tr, r.market); cell(tr, '$' + N(r.strike).toFixed(3), 'n'); cell(tr, settleLabel(r.settles));
-      cell(tr, money(N(r.cost)), 'n'); cell(tr, money(N(r.max_profit)), 'n'); pillCell(tr, r.status);
+      const mk = cell(tr, r.market);
+      if (r.partial === 'yes') { const c = document.createElement('span'); c.className = 'pill lost'; c.style.marginLeft = '6px'; c.textContent = 'partial fill'; mk.appendChild(c); }
+      cell(tr, '$' + N(r.strike).toFixed(3), 'n');
+      cell(tr, r.bought_mt || r.filled_utc || '');
+      cell(tr, r.paid === undefined || r.paid === '' ? '' : Math.round(N(r.paid) * 100) + '\u00a2', 'n');
+      cell(tr, r.contracts === undefined ? '1' : String(+N(r.contracts).toFixed(2)), 'n');
+      cell(tr, money(N(r.cost)), 'n');
+      const nw = r.now_worth === undefined || r.now_worth === '' ? '' : N(r.now_worth);
+      cell(tr, nw === '' ? '' : money(nw), 'n', nw === '' ? 0 : Math.sign(nw - N(r.cost)));
+      cell(tr, signed(N(r.max_profit)), 'n', Math.sign(N(r.max_profit)) < 0 ? -1 : 0);
+      cell(tr, r.trading_closes_mt || settleLabel(r.settles));
+      cell(tr, r.result_expected_mt || '');
+      pillCell(tr, r.status);
       cell(tr, r.pnl === '' ? '' : signed(N(r.pnl)), 'n', r.pnl === '' ? 0 : Math.sign(N(r.pnl)));
     });
+    set('t-next', (() => { const o = live.filter((r) => r.status === 'Open' && r.result_expected_mt).map((r) => r.result_expected_mt); return o.length ? o.sort()[0] : (next ? settleLabel(next) : '—'); })());
 
     // practice
     const S = {}; (d.strategies || []).forEach((r) => { S[r.strategy] = r; });
@@ -245,6 +258,8 @@ footer{color:var(--muted);font-size:12px}
       const td = document.createElement('td'); const sp = document.createElement('span');
       sp.className = 'pill ' + (r.confidence === 'Enough data' ? 'won' : r.confidence === 'Getting there' ? 'warnp' : 'open');
       sp.textContent = r.confidence; td.appendChild(sp); tr.appendChild(td);
+      cell(tr, r.events_per_week === undefined || r.events_per_week === '' ? '' : cnt(Math.round(N(r.events_per_week))), 'n');
+      cell(tr, r.enough_by || '');
     });
     fill('losses', (d.recent_losses || []).slice().sort((a, b) => N(a.pnl) - N(b.pnl)), (tr, r) => {
       cell(tr, r.settled_mt); cell(tr, r.ticker, 'mono'); cell(tr, r.category); cell(tr, Math.round(N(r.price) * 100) + '¢', 'n'); cell(tr, signed(N(r.pnl)), 'n', Math.sign(N(r.pnl)));
