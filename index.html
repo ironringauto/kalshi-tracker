@@ -197,6 +197,22 @@ footer{color:var(--muted);font-size:12px}
         <thead><tr><th>Added (UTC)</th><th>Market</th><th>Side</th><th class="n">Max price</th><th>Category</th><th>Confidence</th><th>Status</th><th>Result</th><th>Why</th></tr></thead>
         <tbody id="news"></tbody></table></div>
     </div>
+    <div class="grid">
+      <div class="card">
+        <h3>Kalshi markets that just moved</h3>
+        <p class="note">Most-traded markets whose YES price moved 8 cents or more in about an hour. On Kalshi the price is often the fastest sign that news broke. Checked every 10 minutes.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Market</th><th class="n">From</th><th class="n">Now</th><th class="n">Move</th></tr></thead>
+          <tbody id="movers"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h3>Breaking headlines</h3>
+        <p class="note" id="hl-note">Last 12 hours from CNBC, Fox, MarketWatch, Yahoo Finance, BBC, NPR, Politico, CoinDesk, the Fed, BLS and EIA. Times are Mountain time.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Time</th><th>Source</th><th>Headline</th></tr></thead>
+          <tbody id="headlines"></tbody></table></div>
+      </div>
+    </div>
   </section>
 
   <section>
@@ -363,6 +379,21 @@ footer{color:var(--muted);font-size:12px}
       if (r.result) pillCell(tr, r.result); else cell(tr, '');
       cell(tr, r.thesis, 'long');
     });
+
+    const HL = d.headlines || {};
+    fill('movers', HL.movers || [], (tr, r) => {
+      const c = cell(tr, r.title || r.ticker, 'long'); c.title = r.ticker;
+      cell(tr, Math.round(N(r.from) * 100) + '\u00a2', 'n'); cell(tr, Math.round(N(r.to) * 100) + '\u00a2', 'n');
+      cell(tr, (N(r.change) > 0 ? '+' : M) + Math.abs(Math.round(N(r.change) * 100)) + '\u00a2', 'n', Math.sign(N(r.change)));
+    });
+    fill('headlines', (HL.headlines || []).slice(0, 60), (tr, r) => {
+      cell(tr, new Date(r.time_utc).toLocaleString([], {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}));
+      cell(tr, r.source);
+      const td = document.createElement('td'); td.className = 'long';
+      if (/^https:\/\//.test(r.url || '')) { const a = document.createElement('a'); a.href = r.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = r.title; a.style.color = 'inherit'; td.appendChild(a); } else td.textContent = r.title;
+      tr.appendChild(td);
+    });
+    if (HL.feeds_failed && HL.feeds_failed.length) set('hl-note', 'Last 12 hours from ' + HL.feeds_ok + ' news feeds (unavailable right now: ' + HL.feeds_failed.join(', ') + '). Times are Mountain time.');
 
     // real money
     const live = d.live || [];
