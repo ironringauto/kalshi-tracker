@@ -52,6 +52,7 @@ table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:
 th{position:sticky;top:0;background:var(--panel);text-align:left;font-weight:500;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
 #live td{white-space:nowrap}
+tr.sig td{background:color-mix(in srgb, var(--accent) 12%, transparent)}
 .n{text-align:right;white-space:nowrap}
 .mono{font-family:var(--mono);font-size:11.5px;white-space:nowrap}
 td.long{min-width:240px;max-width:460px}
@@ -173,6 +174,22 @@ footer{color:var(--muted);font-size:12px}
     </div>
   </section>
   <section>
+    <div class="sec-head"><h2>Crypto fair price</h2><span class="chip">Practice only, new Nov 4</span></div>
+    <p class="note" style="margin:0">Kalshi's Bitcoin and Ethereum markets settle on the real price at a set time. From the live exchange price and how much the coin has moved lately, the bot works out what each strike should cost, the way options are priced, and paper-trades only when Kalshi is off by 4 cents or more after fees.</p>
+    <div class="grid">
+      <div class="card"><h3 id="c-btc-h">Bitcoin</h3><p class="note" id="c-btc-n">Waiting for the first run</p><div class="chart" id="c-btc"></div></div>
+      <div class="card"><h3 id="c-eth-h">Ethereum</h3><p class="note" id="c-eth-n">Waiting for the first run</p><div class="chart" id="c-eth"></div></div>
+      <div class="card wide">
+        <h3>Next close: Kalshi price vs fair price</h3>
+        <p class="note">Bid and ask are Kalshi's prices for YES. Fair is the model's chance of YES. Gap is how far the better side is mispriced after fees; a highlighted row is one the bot paper-traded.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Coin</th><th>Market</th><th class="n">Bid</th><th class="n">Ask</th><th class="n">Fair</th><th>Better side</th><th class="n">Gap</th></tr></thead>
+          <tbody id="cstrikes"></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <div class="sec-head"><h2>Research lab</h2><span class="chip">Practice only, tested on every settled paper gas bet</span></div>
     <div class="tiles">
       <div class="tile"><span class="lab">Wholesale gasoline (RBOB)</span><span class="big" id="w-close">—</span><span class="sub">3-day change <b id="w-3d">—</b>, as of <b id="w-asof">—</b></span></div>
@@ -185,6 +202,13 @@ footer{color:var(--muted);font-size:12px}
         <div class="tbl short"><table>
           <thead><tr><th>Rule</th><th class="n">Bets checked</th><th class="n">Would skip</th><th class="n">Losses caught</th><th class="n">Profit of skipped bets</th><th class="n">Per dollar before</th><th class="n">Per dollar after</th><th>Verdict</th></tr></thead>
           <tbody id="filters"></tbody></table></div>
+      </div>
+      <div class="card wide">
+        <h3>How much can the gas markets hold?</h3>
+        <p class="note">Each time a gas market qualifies, the bot reads Kalshi's order book: how many contracts are for sale at our price, and within 2 cents of it. Summed per day, this is roughly the most money the gas strategy could put to work. It caps how big this strategy can ever get.</p>
+        <div class="tbl short"><table>
+          <thead><tr><th>Day</th><th class="n">Markets</th><th class="n">Typical contracts at our price</th><th class="n">$ at our price</th><th class="n">$ within 2c</th></tr></thead>
+          <tbody id="capacity"></tbody></table></div>
       </div>
       <div class="card wide">
         <h3>Exit rules: sell early or hold to the end?</h3>
@@ -301,6 +325,27 @@ footer{color:var(--muted);font-size:12px}
       cell(tr, cnt(N(r.winners_sold_early)), 'n'); cell(tr, signed(N(r.pnl)), 'n', Math.sign(N(r.pnl)));
       cell(tr, r.rule === 'Hold to settlement' ? '' : signed(N(r.vs_hold)), 'n', Math.sign(N(r.vs_hold)));
     });
+
+    fill('capacity', d.gas_capacity || [], (tr, r) => {
+      cell(tr, r.day); cell(tr, cnt(N(r.markets)), 'n'); cell(tr, cnt(N(r.median_contracts_at_best)), 'n');
+      cell(tr, '$' + d3.format(',.0f')(N(r.dollars_at_best)), 'n'); cell(tr, '$' + d3.format(',.0f')(N(r.dollars_within_2c)), 'n');
+    });
+    const CF = (d.crypto_fair && d.crypto_fair.coins) || {};
+    const mk = (c, x) => {
+      const t = (x.type || '').toLowerCase();
+      const f0 = x.floor ? '$' + d3.format(',.0f')(N(x.floor)) : '', c0 = x.cap ? '$' + d3.format(',.0f')(N(x.cap)) : '';
+      return t.startsWith('greater') ? 'Above ' + f0 : t.startsWith('less') ? 'Below ' + c0 : f0 + ' to ' + c0;
+    };
+    const srows = [];
+    ['BTC', 'ETH'].forEach((c) => (CF[c] && CF[c].strikes || []).forEach((x) => srows.push({c, ...x})));
+    srows.sort((a, b) => Math.abs(N(b.edge)) - Math.abs(N(a.edge)));
+    fill('cstrikes', srows.slice(0, 40), (tr, r) => {
+      if (r.signal) tr.className = 'sig';
+      cell(tr, r.c); cell(tr, mk(r.c, r)); cell(tr, Math.round(N(r.bid) * 100) + '\u00a2', 'n'); cell(tr, Math.round(N(r.ask) * 100) + '\u00a2', 'n');
+      cell(tr, (N(r.fair) * 100).toFixed(1) + '%', 'n'); cell(tr, (r.side || '').toUpperCase());
+      cell(tr, (N(r.edge) >= 0 ? '+' : M) + Math.abs(N(r.edge) * 100).toFixed(1) + '\u00a2', 'n', Math.sign(N(r.edge)));
+    });
+    ['BTC', 'ETH'].forEach((c) => coinChart(c, CF[c]));
 
     // real money
     const live = d.live || [];
@@ -432,6 +477,29 @@ footer{color:var(--muted);font-size:12px}
       .on('mouseleave', () => { tip.style('display', 'none'); rule.style('display', 'none'); });
   }
 
+  function coinChart(coin, info) {
+    const el = document.getElementById('c-' + coin.toLowerCase()); if (!el) return; el.replaceChildren();
+    if (!info || !info.history || !info.history.length) return;
+    const name = coin === 'BTC' ? 'Bitcoin' : 'Ethereum';
+    set('c-' + coin.toLowerCase() + '-h', name + ' $' + d3.format(',.0f')(N(info.spot)));
+    set('c-' + coin.toLowerCase() + '-n', 'Last 72 hours from ' + info.source + '. Typical daily move ' + info.vol_daily_pct + '%. Dashed lines: Kalshi strikes for the next close' + (info.next_close ? ' (' + new Date(info.next_close).toLocaleString([], {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) + ')' : '') + '.');
+    const cs = getComputedStyle(document.documentElement); const v = (n) => cs.getPropertyValue(n).trim();
+    const pts = info.history.map(([t, c]) => ({t: new Date(t * 1000), c: N(c)}));
+    const ks = (info.strikes || []).map((x) => N(x.floor || x.cap)).filter((k) => k > 0);
+    const lo = d3.min(pts, (p) => p.c), hi = d3.max(pts, (p) => p.c), pad = (hi - lo) * 0.25 || hi * 0.01;
+    const vis = ks.filter((k) => k >= lo - pad && k <= hi + pad);
+    const W = Math.max(280, el.clientWidth || 500), H = 260, m = {l: 64, r: 12, t: 10, b: 26};
+    const x = d3.scaleUtc(d3.extent(pts, (p) => p.t), [m.l, W - m.r]);
+    const y = d3.scaleLinear([Math.min(lo, d3.min(vis) || lo) - pad * 0.2, Math.max(hi, d3.max(vis) || hi) + pad * 0.2], [H - m.b, m.t]).nice();
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).style('display', 'block');
+    svg.append('g').selectAll('line').data(y.ticks(5)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', v('--grid'));
+    svg.append('g').selectAll('text').data(y.ticks(5)).join('text').attr('x', m.l - 6).attr('y', y).attr('dy', '0.32em').attr('text-anchor', 'end').attr('font-size', 11).attr('fill', v('--muted')).text((t) => '$' + d3.format(',.0f')(t));
+    svg.append('g').selectAll('text').data(x.ticks(Math.max(2, Math.floor((W - m.l - m.r) / 90)))).join('text').attr('x', x).attr('y', H - 8).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', v('--muted')).text(d3.utcFormat('%b %-d %-I%p'));
+    svg.append('g').selectAll('line').data(vis).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', v('--accent2')).attr('stroke-dasharray', '4 4').attr('stroke-width', 1).attr('opacity', 0.55);
+    svg.append('path').datum(pts).attr('d', d3.line().x((p) => x(p.t)).y((p) => y(p.c))).attr('fill', 'none').attr('stroke', v('--accent')).attr('stroke-width', 2).attr('stroke-linejoin', 'round');
+    const l = pts[pts.length - 1]; svg.append('circle').attr('cx', x(l.t)).attr('cy', y(l.c)).attr('r', 3.5).attr('fill', v('--accent'));
+  }
+
   async function load() {
     try {
       const r = await fetch('data.json?t=' + Date.now(), {cache: 'no-store'});
@@ -442,7 +510,7 @@ footer{color:var(--muted);font-size:12px}
     }
   }
   load(); setInterval(load, 5 * 60 * 1000);
-  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => DATA && renderChart(), 150); });
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (DATA) { renderChart(); const CF=(DATA.crypto_fair&&DATA.crypto_fair.coins)||{}; ['BTC','ETH'].forEach((c)=>coinChart(c, CF[c])); } }, 150); });
   if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => DATA && renderChart());
 })();
 </script>
