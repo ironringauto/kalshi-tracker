@@ -1,17 +1,17 @@
 {
- "News Desk": {
-  "time_utc": "2026-11-06T20:17:53+00:00",
-  "logged": 1,
-  "note": "1 idea: NO on AP calling MS Senate by Nov 14 (0.2% margin; 12-20k affidavits uncounted). Catalog ~97% sports; rest priced in."
- },
- "News Pulse": {
-  "time_utc": "2026-11-06T20:58:21+00:00",
-  "logged": 0,
-  "note": "Manual test run; no new market-moving news since prior pulse"
- },
- "Gas Risk Scan": {
-  "time_utc": "2026-11-06T20:58:23+00:00",
-  "logged": 0,
-  "note": "National low: RBOB/crude down on week, no outages or storms (manual test run)"
- }
+  "News Desk": {
+    "time_utc": "2026-11-06T20:59:53+00:00",
+    "logged": 0,
+    "note": "PM run: no idea cleared 8c edge; jobs beat, AJ Brown/G Wilson outs, Hegseth vote talk look priced in"
+  },
+  "News Pulse": {
+    "time_utc": "2026-11-06T20:58:21+00:00",
+    "logged": 0,
+    "note": "Manual test run; no new market-moving news since prior pulse"
+  },
+  "Gas Risk Scan": {
+    "time_utc": "2026-11-06T20:58:23+00:00",
+    "logged": 0,
+    "note": "National low: RBOB/crude down on week, no outages or storms (manual test run)"
+  }
 }
