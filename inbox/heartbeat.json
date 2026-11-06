@@ -5,9 +5,9 @@
     "note": "Manual test run: catalog and headlines unchanged since 20:57 UTC run; no idea cleared 8c edge"
   },
   "News Pulse": {
-    "time_utc": "2026-11-06T20:58:21+00:00",
+    "time_utc": "2026-11-06T21:38:24+00:00",
     "logged": 0,
-    "note": "Manual test run; no new market-moving news since prior pulse"
+    "note": "Nothing new: Miller CoS, Murphy stroke, chip rebound have no unmoved catalog markets; MS Senate already logged"
   },
   "Gas Risk Scan": {
     "time_utc": "2026-11-06T20:58:23+00:00",
