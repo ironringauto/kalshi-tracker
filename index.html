@@ -313,6 +313,9 @@ footer{color:var(--muted);font-size:12px}
         const lim = r.part.startsWith('AAA') ? 36 * 60 : r.part.startsWith('Kalshi') ? 120 : null;
         if (lim && a !== null && a > lim) { st = 'Stale'; cls = 'warnp'; warn++; }
         else if (r.part.startsWith('Live sports')) { st = 'Info'; cls = 'open'; }
+      } else if (r.kind === 'task') {
+        if (!r.time_utc) { st = 'Waiting'; cls = 'open'; }
+        else if (!r.ok) { st = 'Late'; cls = 'warnp'; warn++; }
       } else { st = r.ok ? 'Info' : 'Low'; cls = r.ok ? 'open' : 'lost'; if (!r.ok) bad++; }
       const c = cell(tr, r.part); c.title = r.what || '';
       const td = document.createElement('td'); const sp = document.createElement('span'); sp.className = 'pill ' + cls; sp.textContent = st; td.appendChild(sp); tr.appendChild(td);

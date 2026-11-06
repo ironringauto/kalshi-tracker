@@ -78,6 +78,11 @@ details summary::-webkit-details-marker{display:none}
   </div>
 
   <div class="card">
+    <div class="label">Research tasks · last check-in</div>
+    <div class="list" id="tasks"></div>
+  </div>
+
+  <div class="card">
     <div class="label">News desk ideas (paper)</div>
     <div class="list" id="news"></div>
   </div>
@@ -102,7 +107,7 @@ details summary::-webkit-details-marker{display:none}
   }
   function render(d){
     const mins=Math.round((Date.now()-new Date(d.updated_utc))/60000);
-    const bad=(d.health||[]).filter(h=>!h.ok).length;
+    const bad=(d.health||[]).filter(h=>!h.ok&&h.kind!=='task').length;
     const stale=mins>40;
     el('dot').className='dot'+(bad?' bad':stale?' warn':'');
     setT('status',(bad?bad+' issue'+(bad>1?'s':''):stale?'Data '+mins+' min old':'All running')+' · '+(mins<1?'now':mins+'m ago'));
@@ -138,6 +143,13 @@ details summary::-webkit-details-marker{display:none}
     row('All long shots','Fade long shots','All long shots');
     row('News desk','News desk');
     row('Research picks','Claude research picks');
+
+    const tl=el('tasks');tl.replaceChildren();
+    const tasks=(d.health||[]).filter(h=>h.kind==='task');
+    if(!tasks.length) tl.innerHTML='<div class="empty">Check-ins start after the next update.</div>';
+    tasks.forEach(h=>{const m=h.time_utc?Math.round((Date.now()-new Date(h.time_utc))/60000):null;
+      const when=m===null?'Not yet':m<60?m+'m ago':m<1440?Math.round(m/60)+'h ago':Math.round(m/1440)+'d ago';
+      item(tl,h.part.replace('Task: ',''),h.time_utc?h.message:h.what,when,m===null?'':h.ok?'pos':'neg',true);});
 
     const nl=el('news');nl.replaceChildren();
     const news=(d.news||[]).slice(0,6);
