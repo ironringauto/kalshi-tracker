@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kalshi Bot">
+<meta name="theme-color" content="#111614">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<title>Kalshi Bot</title>
+<style>
+:root{--bg:#111614;--panel:#1a2320;--fg:#e9eeeb;--muted:#93a39c;--line:#2a3632;--ok:#5fd08f;--bad:#ef7a70;--warn:#e8b04d;--accent:#4fc193;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 14px) max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 28px) max(14px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px}
+.top{display:flex;justify-content:space-between;align-items:center}
+h1{font-size:22px;margin:0;font-weight:700}
+.status{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
+.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.big{font-size:40px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.05}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.stat .v{font-size:19px;font-weight:650;font-variant-numeric:tabular-nums}
+.stat .k{font-size:11.5px;color:var(--muted);margin-top:2px}
+.pos{color:var(--ok)}.neg{color:var(--bad)}
+.list{display:flex;flex-direction:column}
+.item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:15px}
+.item:first-child{border-top:0}
+.item .name{font-weight:600}
+.item .sub{font-size:12px;color:var(--muted)}
+.item .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid currentColor}
+.empty{font-size:14px;color:var(--muted);padding:4px 0}
+.note{font-size:12px;color:var(--muted);line-height:1.4}
+a.full{display:block;text-align:center;color:var(--accent);font-size:14px;text-decoration:none;padding:10px}
+details summary{list-style:none;cursor:pointer;font-size:13px;color:var(--accent);margin-top:8px}
+details summary::-webkit-details-marker{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Kalshi Bot</h1>
+    <div class="status"><span class="dot" id="dot"></span><span id="status">Loading…</span></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Real money · profit so far</div>
+    <div class="big" id="pnl">—</div>
+    <div class="row3">
+      <div class="stat"><div class="v" id="rec">—</div><div class="k">won – lost</div></div>
+      <div class="stat"><div class="v" id="open">—</div><div class="k">open bets</div></div>
+      <div class="stat"><div class="v" id="risk">—</div><div class="k" id="riskk">in play</div></div>
+    </div>
+    <div class="note" id="cap" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card">
+    <div class="label" id="openlabel">Open bets</div>
+    <div class="list" id="openlist"></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Recent results</div>
+    <div class="list" id="results"></div>
+    <details><summary>Show more</summary><div class="list" id="results2"></div></details>
+  </div>
+
+  <div class="card">
+    <div class="label">Practice account (paper money)</div>
+    <div class="list" id="practice"></div>
+  </div>
+
+  <div class="card">
+    <div class="label">News desk ideas (paper)</div>
+    <div class="list" id="news"></div>
+  </div>
+
+  <a class="full" href="./">Open the full dashboard</a>
+</div>
+<script>
+(function(){
+  const M='−', N=(x)=>{const v=Number(x);return Number.isFinite(v)?v:0;};
+  const money=(v)=>(v<0?M+'$':'$')+Math.abs(v).toFixed(2);
+  const signed=(v)=>(v>0?'+$':v<0?M+'$':'$')+Math.abs(v).toFixed(2);
+  const signedK=(v)=>{const a=Math.abs(v);const s=a>=1000?'$'+(a/1000).toFixed(a>=10000?0:1)+'k':'$'+a.toFixed(0);return (v>0?'+':v<0?M:'')+s;};
+  const el=(id)=>document.getElementById(id);
+  const setT=(id,t,sign)=>{const e=el(id);if(!e)return;e.textContent=t;e.classList.remove('pos','neg');if(sign>0)e.classList.add('pos');if(sign<0)e.classList.add('neg');};
+  function item(list,name,sub,right,rcls,pill){
+    const d=document.createElement('div');d.className='item';
+    const l=document.createElement('div');const n=document.createElement('div');n.className='name';n.textContent=name;l.appendChild(n);
+    if(sub){const s=document.createElement('div');s.className='sub';s.textContent=sub;l.appendChild(s);}
+    const r=document.createElement('div');r.className='r';
+    if(pill){const p=document.createElement('span');p.className='pill '+(rcls||'');p.textContent=right;r.appendChild(p);}else{r.textContent=right;if(rcls)r.classList.add(rcls);}
+    d.append(l,r);list.appendChild(d);
+  }
+  function render(d){
+    const mins=Math.round((Date.now()-new Date(d.updated_utc))/60000);
+    const bad=(d.health||[]).filter(h=>!h.ok).length;
+    const stale=mins>40;
+    el('dot').className='dot'+(bad?' bad':stale?' warn':'');
+    setT('status',(bad?bad+' issue'+(bad>1?'s':''):stale?'Data '+mins+' min old':'All running')+' · '+(mins<1?'now':mins+'m ago'));
+
+    const live=d.live||[], open=live.filter(r=>r.status==='Open'), done=live.filter(r=>r.status!=='Open');
+    const pnl=done.reduce((s,r)=>s+N(r.pnl),0), won=done.filter(r=>r.status==='Won').length;
+    setT('pnl',signed(pnl),Math.sign(pnl));
+    setT('rec',won+' – '+(done.length-won));
+    setT('open',String(open.length));
+    const risk=open.reduce((s,r)=>s+N(r.cost),0); setT('risk',money(risk));
+    const A=d.live_account||{};
+    el('cap').textContent=A.cap_now?('Cap $'+N(A.cap_now).toFixed(2)+(A.compounding?' (grows with profit, up to $'+N(A.ceiling).toFixed(0)+')':'')):'';
+
+    const ol=el('openlist');ol.replaceChildren();
+    const exp=open.map(r=>r.result_expected_mt).filter(Boolean).sort()[0];
+    el('openlabel').textContent='Open bets'+(exp?' · results '+exp.replace(/^\w+ \d+, /,''):'');
+    if(!open.length) ol.innerHTML='<div class="empty">None right now. New gas bets usually go in around 6 AM.</div>';
+    open.forEach(r=>{const c=r.clv_cents===''||r.clv_cents==null?null:N(r.clv_cents);
+      item(ol,r.market,'Paid '+Math.round(N(r.paid)*100)+'¢ · wins $'+N(r.max_profit).toFixed(2),c===null?'—':(c>0?'+':c<0?M:'')+Math.abs(c).toFixed(0)+'¢',c===null?'':c>=0?'pos':'neg');});
+
+    const res=done.slice().sort((a,b)=>(b.bought_mt||'').localeCompare(a.bought_mt||'')).reverse();
+    const sorted=done.slice().reverse();
+    const r1=el('results'),r2=el('results2');r1.replaceChildren();r2.replaceChildren();
+    sorted.forEach((r,i)=>item(i<6?r1:r2,r.market,r.bought_mt,signed(N(r.pnl)),N(r.pnl)>=0?'pos':'neg'));
+    if(!sorted.length) r1.innerHTML='<div class="empty">No settled bets yet.</div>';
+    if(sorted.length<=6) el('results2').parentElement.style.display='none';
+
+    const S={};(d.strategies||[]).forEach(s=>S[s.strategy]=s);
+    const pr=el('practice');pr.replaceChildren();
+    const row=(name,key,label)=>{const s=S[key];if(!s)return;const p=N(s.pnl);
+      item(pr,label||name,(s.settled?Number(s.settled).toLocaleString()+' settled':'none settled yet')+(s.win_pct!==''&&s.win_pct!=null?' · '+N(s.win_pct).toFixed(0)+'% won':'')+(s.roi_pct!==''&&s.roi_pct!=null?' · '+(N(s.roi_pct)>0?'+':'')+N(s.roi_pct).toFixed(1)+'%/$':''),signedK(p),p>=0?'pos':'neg');};
+    row('Gas long shots','Fade long shots: gas only','Gas long shots (what the real bot copies)');
+    row('All long shots','Fade long shots','All long shots');
+    row('News desk','News desk');
+    row('Research picks','Claude research picks');
+
+    const nl=el('news');nl.replaceChildren();
+    const news=(d.news||[]).slice(0,6);
+    if(!news.length) nl.innerHTML='<div class="empty">No ideas yet.</div>';
+    news.forEach(n=>{const t=(n.thesis||'').replace(/^PULSE:\s*/,'');
+      const res=n.result||'Waiting';
+      item(nl,(n.side||'')+' · '+(n.ticker||'').split('-').slice(-2).join(' '),t.slice(0,90)+(t.length>90?'…':''),res,res==='Won'?'pos':res==='Lost'?'neg':'',true);});
+  }
+  async function load(){
+    try{const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;render(await r.json());}
+    catch(e){el('status').textContent='Offline · showing last data';}
+  }
+  load();setInterval(load,5*60*1000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});
+})();
+</script>
+</body>
+</html>
