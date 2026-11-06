@@ -1,11 +1,59 @@
-{"date": "2026-11-06", "national_risk": "low", "national_reason": "Crude bounced off Wednesday's low on Hormuz tanker attacks (Brent +3.9% Nov 5), but RBOB is up well under 6c, crude is still down about 12% on the week, and AAA is falling about 3c a day with analysts calling sub-$4 by next week.", "states": {}, "sources": [
-{"title": "AAA: National Average Falls 12 Cents in One Week", "url": "https://gasprices.aaa.com/news/", "date": "2026-11-05"},
-{"title": "AAA Gas Prices: national average $4.0688", "url": "https://gasprices.aaa.com/", "date": "2026-11-06"},
-{"title": "Gas prices could soon dip below $4 a gallon (CBS News)", "url": "https://www.cbsnews.com/news/gas-prices-below-four-dollars-expert-predicts/", "date": "2026-11-05"},
-{"title": "Brent gains US$3.67 a barrel on Nov 5 after tanker attacks", "url": "https://www.nationthailand.com/news/world/40073162", "date": "2026-11-06"},
-{"title": "Oil Prices Rebound Sharply After Brutal Midweek Rout", "url": "https://oilprice.com/Latest-Energy-News/World-News/Oil-Prices-Rebound-Sharply-After-Brutal-Midweek-Rout.html", "date": "2026-11-05"},
-{"title": "Brent Crude Oil Price: $99.90 as Hormuz Attacks Return", "url": "https://financefeeds.com/brent-crude-oil-price-99-90-friday-after-wall-street-ai-rout-jobs-report-iran-deal-bets-bull-103-60-bear-93-50/", "date": "2026-11-06"},
-{"title": "US crude stocks, gasoline and distillate inventories fall (EIA)", "url": "https://boereport.com/2026/11/04/us-crude-stocks-gasoline-and-distillate-inventories-fall-eia-2/", "date": "2026-11-04"},
-{"title": "ABC13 tropical update: low south of Bermuda, no Gulf threat", "url": "https://abc13.com/tropicalupdate/", "date": "2026-11-05"},
-{"title": "Governor Braun extends gas tax holiday through Dec. 4", "url": "https://www.wlfi.com/2026/11/04/governor-braun-extends-gas-tax-holiday-through-dec-4/", "date": "2026-11-04"}
-], "made_utc": "2026-11-06T13:52:53Z"}
+{
+ "date": "2026-11-06",
+ "national_risk": "low",
+ "national_reason": "Afternoon recheck: RBOB settled ~$2.755 (-0.8c day, -18c over 3 sessions); Brent on track for biggest weekly drop since 2020 despite Hormuz tanker attacks; no new US refinery/pipeline outage, no Gulf storm, AAA falling ~3c/day.",
+ "states": {},
+ "sources": [
+  {
+   "title": "Brent oil price benchmark set for biggest weekly drop since 2020 (Yahoo Finance)",
+   "url": "https://finance.yahoo.com/energy/articles/oil-set-sharp-weekly-drop-052924519.html",
+   "date": "2026-11-06"
+  },
+  {
+   "title": "AAA: National Average Falls 12 Cents in One Week",
+   "url": "https://gasprices.aaa.com/news/",
+   "date": "2026-11-05"
+  },
+  {
+   "title": "AAA Gas Prices: national average $4.0688",
+   "url": "https://gasprices.aaa.com/",
+   "date": "2026-11-06"
+  },
+  {
+   "title": "Gas prices could soon dip below $4 a gallon (CBS News)",
+   "url": "https://www.cbsnews.com/news/gas-prices-below-four-dollars-expert-predicts/",
+   "date": "2026-11-05"
+  },
+  {
+   "title": "Brent gains US$3.67 a barrel on Nov 5 after tanker attacks",
+   "url": "https://www.nationthailand.com/news/world/40073162",
+   "date": "2026-11-06"
+  },
+  {
+   "title": "Oil Prices Rebound Sharply After Brutal Midweek Rout",
+   "url": "https://oilprice.com/Latest-Energy-News/World-News/Oil-Prices-Rebound-Sharply-After-Brutal-Midweek-Rout.html",
+   "date": "2026-11-05"
+  },
+  {
+   "title": "Brent Crude Oil Price: $99.90 as Hormuz Attacks Return",
+   "url": "https://financefeeds.com/brent-crude-oil-price-99-90-friday-after-wall-street-ai-rout-jobs-report-iran-deal-bets-bull-103-60-bear-93-50/",
+   "date": "2026-11-06"
+  },
+  {
+   "title": "US crude stocks, gasoline and distillate inventories fall (EIA)",
+   "url": "https://boereport.com/2026/11/04/us-crude-stocks-gasoline-and-distillate-inventories-fall-eia-2/",
+   "date": "2026-11-04"
+  },
+  {
+   "title": "ABC13 tropical update: low south of Bermuda, no Gulf threat",
+   "url": "https://abc13.com/tropicalupdate/",
+   "date": "2026-11-05"
+  },
+  {
+   "title": "Governor Braun extends gas tax holiday through Dec. 4",
+   "url": "https://www.wlfi.com/2026/11/04/governor-braun-extends-gas-tax-holiday-through-dec-4/",
+   "date": "2026-11-04"
+  }
+ ],
+ "made_utc": "2026-11-06T20:58:02Z"
+}
