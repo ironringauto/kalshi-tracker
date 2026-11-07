@@ -1,59 +1,29 @@
 {
- "date": "2026-11-06",
+ "date": "2026-11-07",
  "national_risk": "low",
- "national_reason": "Afternoon recheck: RBOB settled ~$2.755 (-0.8c day, -18c over 3 sessions); Brent on track for biggest weekly drop since 2020 despite Hormuz tanker attacks; no new US refinery/pipeline outage, no Gulf storm, AAA falling ~3c/day.",
+ "national_reason": "",
  "states": {},
  "sources": [
   {
-   "title": "Brent oil price benchmark set for biggest weekly drop since 2020 (Yahoo Finance)",
-   "url": "https://finance.yahoo.com/energy/articles/oil-set-sharp-weekly-drop-052924519.html",
+   "title": "NYMEX RBOB (RB=F) settle $2.7767 Nov 6, +1.3c day, -15.9c 3 sessions (repo data.json)",
+   "url": "https://finance.yahoo.com/quote/RB%3DF/",
    "date": "2026-11-06"
   },
   {
-   "title": "AAA: National Average Falls 12 Cents in One Week",
-   "url": "https://gasprices.aaa.com/news/",
-   "date": "2026-11-05"
+   "title": "Brent Crude Oil Price: $98.32 After 16% Weekly Drop",
+   "url": "https://financefeeds.com/brent-crude-oil-price-98-32-saturday-week-ahead-us-iran-deal-bets-cpi-10-november-bull-105-bear-93/",
+   "date": "2026-11-07"
   },
   {
-   "title": "AAA Gas Prices: national average $4.0688",
-   "url": "https://gasprices.aaa.com/",
+   "title": "Brent oil prices set for biggest weekly drop since 2020 (RTE)",
+   "url": "https://www.rte.ie/news/business/2026/1106/1598252-world-oil-prices/",
    "date": "2026-11-06"
   },
   {
-   "title": "Gas prices could soon dip below $4 a gallon (CBS News)",
-   "url": "https://www.cbsnews.com/news/gas-prices-below-four-dollars-expert-predicts/",
-   "date": "2026-11-05"
-  },
-  {
-   "title": "Brent gains US$3.67 a barrel on Nov 5 after tanker attacks",
-   "url": "https://www.nationthailand.com/news/world/40073162",
-   "date": "2026-11-06"
-  },
-  {
-   "title": "Oil Prices Rebound Sharply After Brutal Midweek Rout",
-   "url": "https://oilprice.com/Latest-Energy-News/World-News/Oil-Prices-Rebound-Sharply-After-Brutal-Midweek-Rout.html",
-   "date": "2026-11-05"
-  },
-  {
-   "title": "Brent Crude Oil Price: $99.90 as Hormuz Attacks Return",
-   "url": "https://financefeeds.com/brent-crude-oil-price-99-90-friday-after-wall-street-ai-rout-jobs-report-iran-deal-bets-bull-103-60-bear-93-50/",
-   "date": "2026-11-06"
-  },
-  {
-   "title": "US crude stocks, gasoline and distillate inventories fall (EIA)",
-   "url": "https://boereport.com/2026/11/04/us-crude-stocks-gasoline-and-distillate-inventories-fall-eia-2/",
-   "date": "2026-11-04"
-  },
-  {
-   "title": "ABC13 tropical update: low south of Bermuda, no Gulf threat",
-   "url": "https://abc13.com/tropicalupdate/",
-   "date": "2026-11-05"
-  },
-  {
-   "title": "Governor Braun extends gas tax holiday through Dec. 4",
-   "url": "https://www.wlfi.com/2026/11/04/governor-braun-extends-gas-tax-holiday-through-dec-4/",
-   "date": "2026-11-04"
+   "title": "Risk of Iran war escalation remains high despite Democratic sweep (CNBC)",
+   "url": "https://www.cnbc.com/2026/11/07/iran-war-midterm-election-oil-price-trump.html",
+   "date": "2026-11-07"
   }
  ],
- "made_utc": "2026-11-06T20:58:21Z"
+ "made_utc": "2026-11-07T13:44:15Z"
 }
