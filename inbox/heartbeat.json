@@ -1,22 +1,22 @@
 {
- "News Desk": {
-  "time_utc": "2026-11-08T11:17:25+00:00",
-  "logged": 1,
-  "note": "1 idea: MS Senate AP call before Nov 11 NO (affidavit cure/scan runs through Nov 10); rest priced in"
- },
- "News Pulse": {
-  "time_utc": "2026-11-08T13:38:15+00:00",
-  "logged": 0,
-  "note": "Quiet Sunday morning; no market-moving news in last 2h"
- },
- "Gas Risk Scan": {
-  "time_utc": "2026-11-08T13:44:35+00:00",
-  "logged": 0,
-  "note": "national low: RBOB -53c/5 sessions, Brent -16% wk, AAA falling; no US refinery/storm/tax drivers"
- },
- "Research Picks": {
-  "time_utc": "2026-11-07T22:53:59+00:00",
-  "logged": 1,
-  "note": "Georgia ML at Ole Miss (max 0.62); rest of slate skipped for unresolved starters or no edge"
- }
+  "News Desk": {
+    "time_utc": "2026-11-08T11:17:25+00:00",
+    "logged": 1,
+    "note": "1 idea: MS Senate AP call before Nov 11 NO (affidavit cure/scan runs through Nov 10); rest priced in"
+  },
+  "News Pulse": {
+    "time_utc": "2026-11-08T14:37:58+00:00",
+    "logged": 0,
+    "note": "Quiet Sunday morning; no market-moving breaking news, movers empty"
+  },
+  "Gas Risk Scan": {
+    "time_utc": "2026-11-08T13:44:35+00:00",
+    "logged": 0,
+    "note": "national low: RBOB -53c/5 sessions, Brent -16% wk, AAA falling; no US refinery/storm/tax drivers"
+  },
+  "Research Picks": {
+    "time_utc": "2026-11-07T22:53:59+00:00",
+    "logged": 1,
+    "note": "Georgia ML at Ole Miss (max 0.62); rest of slate skipped for unresolved starters or no edge"
+  }
 }
