@@ -1,29 +1,29 @@
 {
- "date": "2026-11-07",
+ "date": "2026-11-08",
  "national_risk": "low",
  "national_reason": "",
  "states": {},
  "sources": [
   {
-   "title": "NYMEX RBOB (RB=F) settle $2.7767 Nov 6, +1.3c day, -15.9c 3 sessions (repo data.json)",
+   "title": "NYMEX RBOB (RB=F) settle $2.7767 Nov 6, +1.3c day, -15.9c 3 sessions, -53.5c 5 sessions (repo data.json)",
    "url": "https://finance.yahoo.com/quote/RB%3DF/",
    "date": "2026-11-06"
   },
   {
-   "title": "Brent Crude Oil Price: $98.32 After 16% Weekly Drop",
+   "title": "Brent Crude Oil Price: $98.32 Saturday as US-Iran Deal Bets and CPI Frame the Week",
    "url": "https://financefeeds.com/brent-crude-oil-price-98-32-saturday-week-ahead-us-iran-deal-bets-cpi-10-november-bull-105-bear-93/",
    "date": "2026-11-07"
   },
   {
-   "title": "Brent oil prices set for biggest weekly drop since 2020 (RTE)",
-   "url": "https://www.rte.ie/news/business/2026/1106/1598252-world-oil-prices/",
-   "date": "2026-11-06"
+   "title": "AAA: National Average Falls 12 Cents in One Week ($4.10)",
+   "url": "https://newsroom.aaa.com/2026/11/national-average-falls-12-cents-in-one-week/",
+   "date": "2026-11-05"
   },
   {
-   "title": "Risk of Iran war escalation remains high despite Democratic sweep (CNBC)",
-   "url": "https://www.cnbc.com/2026/11/07/iran-war-midterm-election-oil-price-trump.html",
-   "date": "2026-11-07"
+   "title": "Global oil prices record sharp weekly decline amid hopes of easing Middle East tensions",
+   "url": "https://www.newswire.lk/2026/11/08/global-oil-prices-record-sharp-weekly-decline-amid-hopes-of-easing-middle-east-tensions/",
+   "date": "2026-11-08"
   }
  ],
- "made_utc": "2026-11-07T13:44:15Z"
+ "made_utc": "2026-11-08T13:44:32Z"
 }
