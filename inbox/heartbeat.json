@@ -1,22 +1,22 @@
 {
-  "News Desk": {
-    "time_utc": "2026-11-09T11:20:49+00:00",
-    "logged": 0,
-    "note": "No edge: Hegseth impeachment vote (0.78) and Trump 'kidding' on Dana White already priced in 10:30 catalog; Nvidia/oil moves have no slow markets"
-  },
-  "News Pulse": {
-    "time_utc": "2026-11-09T13:39:17+00:00",
-    "logged": 0,
-    "note": "Nvidia/Huang probe already priced in stocks; no catalog market tied to it; nothing new"
-  },
-  "Gas Risk Scan": {
-    "time_utc": "2026-11-08T13:44:35+00:00",
-    "logged": 0,
-    "note": "national low: RBOB -53c/5 sessions, Brent -16% wk, AAA falling; no US refinery/storm/tax drivers"
-  },
-  "Research Picks": {
-    "time_utc": "2026-11-08T22:55:58+00:00",
-    "logged": 0,
-    "note": "No picks: thin late slate; Bucs-Bears QB/OL statuses unresolved; NBA edges under 4% with no injury detail"
-  }
+ "News Desk": {
+  "time_utc": "2026-11-09T11:20:49+00:00",
+  "logged": 0,
+  "note": "No edge: Hegseth impeachment vote (0.78) and Trump 'kidding' on Dana White already priced in 10:30 catalog; Nvidia/oil moves have no slow markets"
+ },
+ "News Pulse": {
+  "time_utc": "2026-11-09T13:39:17+00:00",
+  "logged": 0,
+  "note": "Nvidia/Huang probe already priced in stocks; no catalog market tied to it; nothing new"
+ },
+ "Gas Risk Scan": {
+  "time_utc": "2026-11-09T13:44:54+00:00",
+  "logged": 0,
+  "note": "National low: RBOB -18c/5d, Brent <$100 after 16% weekly drop; Hormuz a watch item"
+ },
+ "Research Picks": {
+  "time_utc": "2026-11-08T22:55:58+00:00",
+  "logged": 0,
+  "note": "No picks: thin late slate; Bucs-Bears QB/OL statuses unresolved; NBA edges under 4% with no injury detail"
+ }
 }
