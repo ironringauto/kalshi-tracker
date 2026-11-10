@@ -1,7 +1,29 @@
-{"date": "2026-11-09", "national_risk": "low", "national_reason": "", "states": {}, "sources": [
- {"title": "NYMEX RBOB (RB=F) $2.7232 Nov 9, -5.4c day, -17.7c 5 sessions (repo data.json)", "url": "https://finance.yahoo.com/quote/RB%3DF/", "date": "2026-11-09"},
- {"title": "Oil falls as Trump signals restraint on Iran amid fresh Hormuz attacks", "url": "https://www.rte.ie/news/business/2026/1109/1598486-world-oil-prices/", "date": "2026-11-09"},
- {"title": "Brent settles below $100 after 16% weekly drop", "url": "https://biz.liga.net/en/energy/news/brent-settles-below-100-after-16-weekly-drop-biggest-since-2020", "date": "2026-11-07"},
- {"title": "Rubio sees little hope of diplomatic breakthrough to Mideast deadlock (watch item: Hormuz)", "url": "https://www.cnbc.com/2026/11/09/us-iran-war-trump-hormuz.html", "date": "2026-11-09"},
- {"title": "Columbus gas prices slide nearly 33 cents in a week to $3.79 a gallon Monday", "url": "https://abc6onyourside.com/news/local/columbus-gas-prices-slide-nearly-33-cents-in-a-week-to-379-a-gallon-monday", "date": "2026-11-09"}
-], "made_utc": "2026-11-09T13:44:51Z"}
+{
+ "date": "2026-11-10",
+ "national_risk": "low",
+ "national_reason": "",
+ "states": {},
+ "sources": [
+  {
+   "title": "NYMEX RBOB (RB=F) $2.6065 Nov 10, -4.4c day, -15.7c 3 sessions, -32.9c 5 sessions (repo data.json)",
+   "url": "https://finance.yahoo.com/quote/RB%3DF/",
+   "date": "2026-11-10"
+  },
+  {
+   "title": "Brent crude falls below $90 for first time since August on Iran war de-escalation hopes",
+   "url": "https://www.cnbc.com/2026/11/10/oil-prices-trump-iran.html",
+   "date": "2026-11-10"
+  },
+  {
+   "title": "Brent falls below $90 a barrel for first time since August",
+   "url": "https://www.thenationalnews.com/business/energy/2026/11/10/brent-falls-below-90-a-barrel-for-the-first-time-since-august/",
+   "date": "2026-11-10"
+  },
+  {
+   "title": "Oil falls as Trump signals restraint on Iran amid fresh Hormuz attacks",
+   "url": "https://www.rte.ie/news/business/2026/1109/1598486-world-oil-prices/",
+   "date": "2026-11-09"
+  }
+ ],
+ "made_utc": "2026-11-10T13:45:37+00:00"
+}
