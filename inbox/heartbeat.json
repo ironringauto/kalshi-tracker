@@ -1,22 +1,22 @@
 {
- "News Desk": {
-  "time_utc": "2026-11-10T11:19:31+00:00",
-  "logged": 0,
-  "note": "0 ideas: Hegseth impeachment push, Brent<$90/gas slide, NC-03 233-vote margin, Iran de-escalation all appear priced in"
- },
- "News Pulse": {
-  "time_utc": "2026-11-10T13:40:04+00:00",
-  "logged": 0,
-  "note": "Nothing new: Anthropic IPO range, Hegseth House impeachment vote (no removal before Nov 16), Nvidia scandal; no unmoved catalog market with 10c edge"
- },
- "Gas Risk Scan": {
-  "time_utc": "2026-11-10T13:45:44+00:00",
-  "logged": 0,
-  "note": "National low: RBOB -33c/5 sessions, Brent <$90 on Iran de-escalation; no outages found"
- },
- "Research Picks": {
-  "time_utc": "2026-11-09T22:53:35+00:00",
-  "logged": 0,
-  "note": "No picks: MNF priced for Murray out; DEN-HOU lines conflict (-4.5 to -9.5) w/ Jokic late-scratch risk; NHL fair or goalie unconfirmed"
- }
+  "News Desk": {
+    "time_utc": "2026-11-10T11:19:31+00:00",
+    "logged": 0,
+    "note": "0 ideas: Hegseth impeachment push, Brent<$90/gas slide, NC-03 233-vote margin, Iran de-escalation all appear priced in"
+  },
+  "News Pulse": {
+    "time_utc": "2026-11-10T14:38:48+00:00",
+    "logged": 0,
+    "note": "Hot Oct CPI (+0.4%) and Anthropic IPO news but no catalog market settles on them; nothing new"
+  },
+  "Gas Risk Scan": {
+    "time_utc": "2026-11-10T13:45:44+00:00",
+    "logged": 0,
+    "note": "National low: RBOB -33c/5 sessions, Brent <$90 on Iran de-escalation; no outages found"
+  },
+  "Research Picks": {
+    "time_utc": "2026-11-09T22:53:35+00:00",
+    "logged": 0,
+    "note": "No picks: MNF priced for Murray out; DEN-HOU lines conflict (-4.5 to -9.5) w/ Jokic late-scratch risk; NHL fair or goalie unconfirmed"
+  }
 }
