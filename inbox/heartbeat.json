@@ -1,22 +1,22 @@
 {
-  "News Desk": {
-    "time_utc": "2026-11-11T11:24:03+00:00",
-    "logged": 1,
-    "note": "NC-3 NO on AP call by Nov 18: Smith flipped to +264 after provisionals; recount-range margin"
-  },
-  "News Pulse": {
-    "time_utc": "2026-11-11T13:39:00+00:00",
-    "logged": 0,
-    "note": "Hot CPI/Fed hike talk and Bessent-Iran threat already priced or no matching unmoved market; nothing new"
-  },
-  "Gas Risk Scan": {
-    "time_utc": "2026-11-10T13:45:44+00:00",
-    "logged": 0,
-    "note": "National low: RBOB -33c/5 sessions, Brent <$90 on Iran de-escalation; no outages found"
-  },
-  "Research Picks": {
-    "time_utc": "2026-11-10T22:56:53+00:00",
-    "logged": 1,
-    "note": "Portland ML vs OKC (max 0.47); NHL skips on unconfirmed goalies/Makar"
-  }
+ "News Desk": {
+  "time_utc": "2026-11-11T11:24:03+00:00",
+  "logged": 1,
+  "note": "NC-3 NO on AP call by Nov 18: Smith flipped to +264 after provisionals; recount-range margin"
+ },
+ "News Pulse": {
+  "time_utc": "2026-11-11T13:39:00+00:00",
+  "logged": 0,
+  "note": "Hot CPI/Fed hike talk and Bessent-Iran threat already priced or no matching unmoved market; nothing new"
+ },
+ "Gas Risk Scan": {
+  "time_utc": "2026-11-11T13:44:10+00:00",
+  "logged": 0,
+  "note": "National low: RBOB +1.8c, Brent ~+2-3% rebound off 2-month low on Hormuz attacks; no US outages"
+ },
+ "Research Picks": {
+  "time_utc": "2026-11-10T22:56:53+00:00",
+  "logged": 1,
+  "note": "Portland ML vs OKC (max 0.47); NHL skips on unconfirmed goalies/Makar"
+ }
 }
