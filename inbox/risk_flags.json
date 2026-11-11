@@ -1,29 +1,24 @@
 {
- "date": "2026-11-10",
+ "date": "2026-11-11",
  "national_risk": "low",
  "national_reason": "",
  "states": {},
  "sources": [
   {
-   "title": "NYMEX RBOB (RB=F) $2.6065 Nov 10, -4.4c day, -15.7c 3 sessions, -32.9c 5 sessions (repo data.json)",
+   "title": "NYMEX RBOB (RB=F) $2.6266 Nov 11, +1.8c day, -15.0c 3 sessions, -10.2c 5 sessions (repo data.json)",
    "url": "https://finance.yahoo.com/quote/RB%3DF/",
-   "date": "2026-11-10"
+   "date": "2026-11-11"
   },
   {
-   "title": "Brent crude falls below $90 for first time since August on Iran war de-escalation hopes",
-   "url": "https://www.cnbc.com/2026/11/10/oil-prices-trump-iran.html",
-   "date": "2026-11-10"
+   "title": "Oil rises from two-month low as Hormuz shipping attacks offset Iran truce hopes",
+   "url": "https://www.cnbc.com/2026/11/11/oil-rises-from-two-month-low-as-hormuz-shipping-attacks-offset-iran-truce-hopes.html",
+   "date": "2026-11-11"
   },
   {
-   "title": "Brent falls below $90 a barrel for first time since August",
-   "url": "https://www.thenationalnews.com/business/energy/2026/11/10/brent-falls-below-90-a-barrel-for-the-first-time-since-august/",
-   "date": "2026-11-10"
-  },
-  {
-   "title": "Oil falls as Trump signals restraint on Iran amid fresh Hormuz attacks",
-   "url": "https://www.rte.ie/news/business/2026/1109/1598486-world-oil-prices/",
-   "date": "2026-11-09"
+   "title": "Brent Crude Oil Price: $92.53 Wednesday After the Lowest Settle Since August on Iran Talks",
+   "url": "https://financefeeds.com/brent-crude-oil-price-92-53-wednesday-after-lowest-settle-since-august-iran-talks-bull-98-bear-89/",
+   "date": "2026-11-11"
   }
  ],
- "made_utc": "2026-11-10T13:45:37+00:00"
+ "made_utc": "2026-11-11T13:44:06+00:00"
 }
