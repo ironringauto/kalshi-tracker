@@ -1,22 +1,22 @@
 {
-  "News Desk": {
-    "time_utc": "2026-11-12T11:22:04+00:00",
-    "logged": 0,
-    "note": "No ideas: Nvidia/Huang ouster reports already priced (Huang-leave-by-Nov17 ~0.68 vs my ~0.72); no other catalog market hit by fresh news"
-  },
-  "News Pulse": {
-    "time_utc": "2026-11-12T12:38:49+00:00",
-    "logged": 0,
-    "note": "Nvidia/Huang ouster reports already priced in heavy-volume KXCEONVDA (~0.55); Colom MS win already settled; no unpriced edge"
-  },
-  "Gas Risk Scan": {
-    "time_utc": "2026-11-11T13:44:10+00:00",
-    "logged": 0,
-    "note": "National low: RBOB +1.8c, Brent ~+2-3% rebound off 2-month low on Hormuz attacks; no US outages"
-  },
-  "Research Picks": {
-    "time_utc": "2026-11-11T22:54:14+00:00",
-    "logged": 0,
-    "note": "No picks: NBA/NHL lines matched previews; BOS-TOR Quickley questionable; DEN already picked"
-  }
+ "News Desk": {
+  "time_utc": "2026-11-12T11:22:04+00:00",
+  "logged": 0,
+  "note": "No ideas: Nvidia/Huang ouster reports already priced (Huang-leave-by-Nov17 ~0.68 vs my ~0.72); no other catalog market hit by fresh news"
+ },
+ "News Pulse": {
+  "time_utc": "2026-11-12T12:38:49+00:00",
+  "logged": 0,
+  "note": "Nvidia/Huang ouster reports already priced in heavy-volume KXCEONVDA (~0.55); Colom MS win already settled; no unpriced edge"
+ },
+ "Gas Risk Scan": {
+  "time_utc": "2026-11-12T13:44:47+00:00",
+  "logged": 0,
+  "note": "National low: Brent +~3% on Iran remarks but RBOB down 19c/5 sessions"
+ },
+ "Research Picks": {
+  "time_utc": "2026-11-11T22:54:14+00:00",
+  "logged": 0,
+  "note": "No picks: NBA/NHL lines matched previews; BOS-TOR Quickley questionable; DEN already picked"
+ }
 }
