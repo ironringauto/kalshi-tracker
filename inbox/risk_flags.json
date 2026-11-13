@@ -1,29 +1,29 @@
 {
- "date": "2026-11-12",
+ "date": "2026-11-13",
  "national_risk": "low",
- "national_reason": "Watch only: Brent ~+2-3% to ~$94 on Trump 'no Iran deal needed' remarks (below 4% bar); RBOB still -19c over 5 sessions, retail lagging lower.",
+ "national_reason": "No upward driver: RBOB -4.4c to $2.627 (+1.8c over 3 sessions, -15c over 5); IEA says oil market back in surplus; no new US refinery/pipeline outage or Gulf storm found.",
  "states": {},
  "sources": [
   {
-   "title": "NYMEX RBOB (RB=F) $2.5719 Nov 12, -3.6c day, -7.9c 3 sessions, -19.2c 5 sessions (repo data.json)",
+   "title": "NYMEX RBOB (RB=F) $2.6268 Nov 13, -4.4c day, +1.8c 3 sessions, -15.0c 5 sessions (repo data.json)",
    "url": "https://finance.yahoo.com/quote/RB%3DF/",
+   "date": "2026-11-13"
+  },
+  {
+   "title": "Russian crude production rebounds after Trump diesel deal, IEA says as oil markets return to surplus",
+   "url": "https://www.cnbc.com/2026/11/13/russia-oil-exports-iea-diesel-deal.html",
+   "date": "2026-11-13"
+  },
+  {
+   "title": "Oil prices rise after Trump says no Iran deal needed: 'We've got their Strait'",
+   "url": "https://cnbc.com/2026/11/12/oil-prices-jump-after-trump-says-no-iran-deal-needed-weve-got-their-strait.html",
    "date": "2026-11-12"
   },
   {
-   "title": "Oil prices jump after Trump says no Iran deal needed: 'We've got their Strait'",
-   "url": "https://www.cnbc.com/2026/11/12/oil-prices-jump-after-trump-says-no-iran-deal-needed-weve-got-their-strait.html",
+   "title": "Current price of oil as of Nov. 12, 2026",
+   "url": "https://fortune.com/article/price-of-oil-11-12-2026/",
    "date": "2026-11-12"
-  },
-  {
-   "title": "Brent Jumps Nearly 3% as Iran Denies Any Talks With Washington",
-   "url": "https://oilprice.com/Latest-Energy-News/World-News/Brent-Jumps-3-to-94-as-Iran-Denies-Any-Talks-With-Washington.html",
-   "date": "2026-11-12"
-  },
-  {
-   "title": "Gas prices likely to drop below $4 a gallon in the next week if oil prices keep declining, analyst says",
-   "url": "https://finance.yahoo.com/markets/article/gasoline-could-fall-below-4-in-the-next-week-as-oil-prices-drop-says-analyst-171201913.html",
-   "date": "2026-11-10"
   }
  ],
- "made_utc": "2026-11-12T13:44:44+00:00"
+ "made_utc": "2026-11-13T13:43:53+00:00"
 }
