@@ -1,22 +1,22 @@
 {
- "News Desk": {
-  "time_utc": "2026-11-14T11:13:11+00:00",
-  "logged": 0,
-  "note": "Sat AM: FAA ground stop; Lutnick/Nvidia; Trump-Putin-Xi summit - catalog markets already priced; no 8c edge"
- },
- "News Pulse": {
-  "time_utc": "2026-11-14T13:38:14+00:00",
-  "logged": 0,
-  "note": "Quiet Saturday morning: outages/FAA delays/Ukraine talk headlines; nothing actionable with unmoved catalog market"
- },
- "Gas Risk Scan": {
-  "time_utc": "2026-11-14T13:44:33+00:00",
-  "logged": 0,
-  "note": "National low: RBOB -4.9c, crude 2nd weekly drop, no outages/storms"
- },
- "Research Picks": {
-  "time_utc": "2026-11-13T22:57:44+00:00",
-  "logged": 0,
-  "note": "No picks: key starters questionable (Heat/Klay; NOP/Murphy; OKC/Mitchell); CFB edges matched market"
- }
+  "News Desk": {
+    "time_utc": "2026-11-14T11:13:11+00:00",
+    "logged": 0,
+    "note": "Sat AM: FAA ground stop; Lutnick/Nvidia; Trump-Putin-Xi summit - catalog markets already priced; no 8c edge"
+  },
+  "News Pulse": {
+    "time_utc": "2026-11-14T14:37:56+00:00",
+    "logged": 0,
+    "note": "FAA ground stop (lifted) and MS outage; no catalog market mispriced by 10c+ (Bedford-out unaffected); nothing new"
+  },
+  "Gas Risk Scan": {
+    "time_utc": "2026-11-14T13:44:33+00:00",
+    "logged": 0,
+    "note": "National low: RBOB -4.9c, crude 2nd weekly drop, no outages/storms"
+  },
+  "Research Picks": {
+    "time_utc": "2026-11-13T22:57:44+00:00",
+    "logged": 0,
+    "note": "No picks: key starters questionable (Heat/Klay; NOP/Murphy; OKC/Mitchell); CFB edges matched market"
+  }
 }
