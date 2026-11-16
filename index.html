@@ -287,7 +287,7 @@ footer{color:var(--muted);font-size:12px}
     const rw = res.filter((r) => r.result === 'Won').length, rl = res.filter((r) => r.result === 'Lost').length;
     const nw = news.filter((r) => r.result === 'Won').length, nl = news.filter((r) => r.result === 'Lost').length;
     set('a-res', (rw + nw) + '–' + (rl + nl));
-    set('a-res-sub', 'Sports picks ' + rw + '–' + rl + ', news ideas ' + nw + '–' + nl + ' · ' + (res.length + news.length - rw - rl - nw - nl) + ' waiting');
+    set('a-res-sub', 'Sports picks ' + rw + '–' + rl + ', news ideas ' + nw + '–' + nl + ' · ' + (res.filter((r) => r.result === 'Open').length + news.filter((r) => !r.result || r.result === 'Open').length) + ' waiting');
 
     // real bets tables
     set('rb-chip', open.length + ' open · ' + doneToday.length + ' settled today');
