@@ -68,6 +68,8 @@ details.fold[open]>summary::before{content:"\25BE"}
 details.fold>.body{display:flex;flex-direction:column;gap:12px;margin-top:12px}
 summary:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
 footer{color:var(--muted);font-size:12px}
+.seg{font:inherit;font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.seg[aria-pressed="true"]{color:var(--fg);border-color:var(--fg)}
 </style>
 </head>
 <body>
@@ -157,6 +159,19 @@ footer{color:var(--muted);font-size:12px}
         <p class="note" id="news-n">Markets the news scans think are mispriced.</p>
         <div class="tbl"><table><thead><tr><th>Added</th><th>Idea</th><th>Result</th></tr></thead><tbody id="news"></tbody></table></div>
       </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Market-drop lab</h2><span class="chip">Paper money</span><span class="chip" id="md-chip">—</span></div>
+    <div class="card">
+      <p class="note" id="md-note">Every common way to bet on stocks falling, tested on $100 per trade. Pick when to bet; the table shows the average result per trade over 5 years, the last 12 months, and since the lab started on Nov 16. Short-sale fees and option spreads are left out, so real results would be a little worse. The put is an estimate priced from the VIX.</p>
+      <div class="legend" id="md-sig" role="group" aria-label="When to bet" style="gap:6px"></div>
+      <div class="tbl"><table>
+        <thead><tr><th>How</th><th class="n">Hold</th><th class="n">5 yr: trades</th><th class="n">Won</th><th class="n">Avg per trade</th><th class="n">12 mo: avg</th><th class="n">Won</th><th class="n">Since Nov 16</th></tr></thead>
+        <tbody id="md-rows"></tbody></table></div>
+      <h3 style="margin-top:6px">Kalshi bearish bets (S&amp;P and Nasdaq "above X at today's close", betting it closes lower)</h3>
+      <div class="tbl"><table><thead><tr><th>Market</th><th>When</th><th class="n">Bets</th><th class="n">Won</th><th class="n">Profit</th><th class="n">Per dollar</th></tr></thead><tbody id="md-kal"></tbody></table></div>
     </div>
   </section>
 
@@ -350,7 +365,37 @@ footer{color:var(--muted);font-size:12px}
       cell(tr, r.rule); cell(tr, cnt(N(r.exits)), 'n'); cell(tr, cnt(N(r.winners_sold_early)), 'n'); cell(tr, signed(N(r.vs_hold)), 'n', Math.sign(N(r.vs_hold)));
     });
 
+    renderShort();
     renderCharts();
+  }
+
+  let MD_SIG = 'Always';
+  function renderShort() {
+    const L = DATA.short_lab;
+    const chip = document.getElementById('md-chip');
+    if (!L || !L.backtest_5y) { chip.textContent = 'Starting up'; fill('md-rows', [], () => {}); fill('md-kal', [], () => {}); return; }
+    const on = Object.entries(L.signals_today || {}).filter(([k, v]) => v && k !== 'Always').map(([k]) => k);
+    const mk = L.market || {};
+    chip.textContent = 'As of ' + L.as_of + ': S&P ' + (mk.spy_1d_pct > 0 ? '+' : mk.spy_1d_pct < 0 ? M : '') + Math.abs(N(mk.spy_1d_pct)).toFixed(1) + '% on the day, VIX ' + N(mk.vix).toFixed(1) + ' · signals on: ' + (on.join(', ') || 'none');
+    const sigs = ['Always', 'Downtrend', 'Fear (VIX 20+)', 'After a 1.5% drop', 'Downtrend + fear'];
+    const box = document.getElementById('md-sig'); box.replaceChildren();
+    sigs.forEach((n) => { const b = document.createElement('button'); b.className = 'seg'; b.type = 'button'; b.textContent = n + (on.includes(n) ? ' (on today)' : ''); b.setAttribute('aria-pressed', String(n === MD_SIG)); b.onclick = () => { MD_SIG = n; renderShort(); }; box.appendChild(b); });
+    const key = (r) => r.instrument + '|' + r.hold_days;
+    const idx = (rows) => { const m = {}; (rows || []).filter((r) => r.signal === MD_SIG).forEach((r) => { m[key(r)] = r; }); return m; };
+    const y5 = idx(L.backtest_5y), y1 = idx(L.backtest_1y), fw = idx(L.forward);
+    const names = {'Short SPY': 'Short the S&P 500 (SPY)', 'Short QQQ': 'Short the Nasdaq-100 (QQQ)', 'SH': 'Inverse S&P ETF (SH, 1x)', 'PSQ': 'Inverse Nasdaq ETF (PSQ, 1x)', 'SQQQ': 'Inverse Nasdaq ETF (SQQQ, 3x)', 'SPY put (est.)': '1-week S&P put option (estimate)'};
+    const pct = (v) => v === undefined ? '' : (v > 0 ? '+' : v < 0 ? M : '') + Math.abs(v).toFixed(2) + '%';
+    fill('md-rows', Object.values(y5), (tr, r) => {
+      const a = y1[key(r)], f = fw[key(r)];
+      cell(tr, names[r.instrument] || r.instrument); cell(tr, r.hold_days + (r.hold_days === 1 ? ' day' : ' days'), 'n');
+      cell(tr, cnt(r.trades), 'n'); cell(tr, r.win_pct.toFixed(0) + '%', 'n'); cell(tr, pct(r.avg_pct), 'n', Math.sign(r.avg_pct));
+      cell(tr, a ? pct(a.avg_pct) : '', 'n', a ? Math.sign(a.avg_pct) : 0); cell(tr, a ? a.win_pct.toFixed(0) + '%' : '', 'n');
+      cell(tr, f ? cnt(f.trades) + ' trades, ' + signed(f.profit_per_100) : 'none yet', 'n', f ? Math.sign(f.profit_per_100) : 0);
+    });
+    fill('md-kal', L.kalshi || [], (tr, r) => {
+      cell(tr, r.market); cell(tr, r.signal); cell(tr, cnt(r.bets), 'n'); cell(tr, r.win_pct.toFixed(0) + '%', 'n');
+      cell(tr, signed(r.pnl), 'n', Math.sign(r.pnl)); cell(tr, spct(r.roi_pct), 'n', Math.sign(r.roi_pct));
+    });
   }
 
   // ---------- charts ----------
