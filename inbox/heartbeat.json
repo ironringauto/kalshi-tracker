@@ -1,22 +1,22 @@
 {
- "News Desk": {
-  "time_utc": "2026-11-16T11:14:01+00:00",
-  "logged": 0,
-  "note": "No ideas: Trump Asia trip, Lutnick/Nvidia scandal, BTC slide all priced; few catalog markets close within 3 days"
- },
- "News Pulse": {
-  "time_utc": "2026-11-16T13:38:21+00:00",
-  "logged": 0,
-  "note": "No fresh market-moving news in last 2h; headlines are overnight follow-ups (FAA, China/Japan data, Nvidia)"
- },
- "Gas Risk Scan": {
-  "time_utc": "2026-11-16T13:44:06+00:00",
-  "logged": 0,
-  "note": "national low: RBOB -3.9c/day, crude sliding on Iran talks, no outages"
- },
- "Research Picks": {
-  "time_utc": "2026-11-15T22:53:30+00:00",
-  "logged": 1,
-  "note": "Sacramento ML vs short-handed OKC; NHL goalies unconfirmed; SNF no edge"
- }
+  "News Desk": {
+    "time_utc": "2026-11-16T11:14:01+00:00",
+    "logged": 0,
+    "note": "No ideas: Trump Asia trip, Lutnick/Nvidia scandal, BTC slide all priced; few catalog markets close within 3 days"
+  },
+  "News Pulse": {
+    "time_utc": "2026-11-16T14:38:14+00:00",
+    "logged": 0,
+    "note": "Nothing new: Commerce China-loophole crackdown and post-ground-stop flights have no unpriced settling market; gas/ETH movers already reacted"
+  },
+  "Gas Risk Scan": {
+    "time_utc": "2026-11-16T13:44:06+00:00",
+    "logged": 0,
+    "note": "national low: RBOB -3.9c/day, crude sliding on Iran talks, no outages"
+  },
+  "Research Picks": {
+    "time_utc": "2026-11-15T22:53:30+00:00",
+    "logged": 1,
+    "note": "Sacramento ML vs short-handed OKC; NHL goalies unconfirmed; SNF no edge"
+  }
 }
