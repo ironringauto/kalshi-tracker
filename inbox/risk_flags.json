@@ -1,13 +1,13 @@
 {
- "date": "2026-11-15",
+ "date": "2026-11-16",
  "national_risk": "low",
  "national_reason": "",
  "states": {},
  "sources": [
   {
-   "title": "NYMEX RBOB futures (data.json wholesale): -8.2c on Nov 13, -18.8c over 5 sessions",
+   "title": "NYMEX RBOB futures (data.json wholesale): close 2.5828, -3.9c 1-day, -6.8c over 5 sessions",
    "url": "https://finance.yahoo.com/quote/RB=F/",
-   "date": "2026-11-13"
+   "date": "2026-11-16"
   },
   {
    "title": "Oil steadies after deep weekly slump with focus on Iran talks",
@@ -15,5 +15,5 @@
    "date": "2026-11-14"
   }
  ],
- "made_utc": "2026-11-15T13:43:57+00:00"
+ "made_utc": "2026-11-16T13:44:03+00:00"
 }
