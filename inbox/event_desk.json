@@ -1,0 +1,57 @@
+{
+ "rules": {
+  "budget": 100,
+  "per_trade": 10,
+  "where": "Kalshi or Robinhood, whichever fits the event",
+  "only": "Bets where the most you can lose is what you put in (Kalshi contracts or bought options). No short selling, no margin.",
+  "checkpoint": "Review after 20 trades: grow it if the cards beat the market's prices, stop if not."
+ },
+ "cards": [
+  {
+   "id": "E1",
+   "made": "2026-11-16",
+   "event": "Nvidia Q3 earnings call (Tue Nov 17, call about 3pm MT)",
+   "market": "Kalshi: What will NVIDIA say during their next earnings call? (KXEARNINGSMENTIONNVDA)",
+   "idea": "TSMC: NO",
+   "side": "no",
+   "market_price": 0.73,
+   "our_price": 0.85,
+   "max_price": 0.78,
+   "stake": 10,
+   "confidence": "med",
+   "reason": "TSMC was said in 0 of Nvidia's last 3 calls (Feb, May, Aug 2026). Market says 27% it gets said; we estimate about 15%.",
+   "status": "Proposed"
+  },
+  {
+   "id": "E2",
+   "made": "2026-11-16",
+   "event": "Nvidia Q3 earnings call (Tue Nov 17, call about 3pm MT)",
+   "market": "Kalshi: What will NVIDIA say during their next earnings call? (KXEARNINGSMENTIONNVDA)",
+   "idea": "Taiwan: NO",
+   "side": "no",
+   "market_price": 0.5,
+   "our_price": 0.65,
+   "max_price": 0.58,
+   "stake": 10,
+   "confidence": "low",
+   "reason": "Taiwan was said in 1 of the last 3 calls, and only in passing (a cloud customer in Taiwan). Risk: China export and governance questions could bring it up in Q&A.",
+   "status": "Proposed"
+  },
+  {
+   "id": "E3",
+   "made": "2026-11-16",
+   "event": "Nvidia Q3 earnings, stock reaction",
+   "market": "Robinhood: NVDA options",
+   "idea": "No trade",
+   "side": "",
+   "market_price": "",
+   "our_price": "",
+   "max_price": "",
+   "stake": 0,
+   "confidence": "",
+   "reason": "Options price a move of about 9-10% either way, above Nvidia's 10-year average earnings move of about 7.8%. Buying puts or calls (or a cheaper put spread) means paying for more movement than usually happens, and the direction is close to a coin flip. Shorting the stock has no loss limit. Pass on this one.",
+   "status": "Passed"
+  }
+ ],
+ "trades": []
+}

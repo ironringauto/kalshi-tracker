@@ -68,6 +68,8 @@ details.fold[open]>summary::before{content:"\25BE"}
 details.fold>.body{display:flex;flex-direction:column;gap:12px;margin-top:12px}
 summary:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
 footer{color:var(--muted);font-size:12px}
+.lane{display:flex;align-items:baseline;gap:10px;margin:14px 0 -14px;padding-top:16px;border-top:2px solid var(--fg);font-family:var(--serif);font-size:17px}
+.lane span{font-family:var(--sans);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .seg{font:inherit;font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
 .seg[aria-pressed="true"]{color:var(--fg);border-color:var(--fg)}
 </style>
@@ -125,8 +127,9 @@ footer{color:var(--muted);font-size:12px}
     </div>
   </section>
 
+  <div class="lane"><span>Lane 1</span>Gas bot · real money, fully automatic</div>
   <section>
-    <div class="sec-head"><h2>Real bets</h2><span class="chip" id="rb-chip">—</span></div>
+    <div class="sec-head"><h2>Gas bot bets</h2><span class="chip" id="rb-chip">—</span></div>
     <div class="card">
       <p class="note">Each bet is NO on "will AAA's average be above the strike". It wins if the price ends at or below the strike. Today shows open bets and anything that settled today; older bets are folded below.</p>
       <div class="tbl"><table>
@@ -140,6 +143,23 @@ footer{color:var(--muted);font-size:12px}
     </div>
   </section>
 
+  <div class="lane"><span>Lane 2</span>Event desk · real money, you place each trade</div>
+  <section>
+    <div class="sec-head"><h2>Event desk</h2><span class="chip" id="ed-chip">—</span></div>
+    <div class="tiles">
+      <div class="tile"><span class="lab">Budget</span><span class="big" id="ed-budget">—</span><span class="sub" id="ed-budget-sub">—</span></div>
+      <div class="tile"><span class="lab">Profit so far</span><span class="big" id="ed-pnl">—</span><span class="sub" id="ed-pnl-sub">—</span></div>
+    </div>
+    <div class="card">
+      <p class="note" id="ed-rules">Before each big news event Claude writes a card: the facts, what the market already expects, the bet, the most to pay, and the most you can lose. You decide and place it; every trade is graded here.</p>
+      <h3>Cards</h3>
+      <div class="tbl"><table><thead><tr><th>Card</th><th>Event</th><th>Bet</th><th class="n">Market</th><th class="n">Our estimate</th><th class="n">Pay at most</th><th>Why</th><th>Status</th></tr></thead><tbody id="ed-cards"></tbody></table></div>
+      <h3>Trades placed</h3>
+      <div class="tbl"><table><thead><tr><th>Card</th><th>Placed</th><th>Bet</th><th class="n">Paid</th><th class="n">Cost</th><th>Result</th><th class="n">Profit</th></tr></thead><tbody id="ed-trades"></tbody></table></div>
+    </div>
+  </section>
+
+  <div class="lane"><span>Lane 3</span>Practice lab · paper money, testing ideas before any real money</div>
   <section>
     <div class="sec-head"><h2>Practice scorecard</h2><span class="chip">Paper money</span></div>
     <div class="card">
@@ -366,7 +386,30 @@ footer{color:var(--muted);font-size:12px}
     });
 
     renderShort();
+    renderEvent();
     renderCharts();
+  }
+
+  function renderEvent() {
+    const E = DATA._event || {cards: [], trades: [], rules: {}};
+    const R = E.rules || {}, T = E.trades || [];
+    const cost = T.reduce((s, t) => s + N(t.cost), 0), open = T.filter((t) => !t.result || t.result === 'Open');
+    const settled = T.filter((t) => t.result === 'Won' || t.result === 'Lost'), pnl = settled.reduce((s, t) => s + N(t.pnl), 0);
+    set('ed-budget', money(N(R.budget)));
+    set('ed-budget-sub', '$' + N(R.per_trade) + ' per trade · ' + money(open.reduce((s, t) => s + N(t.cost), 0)) + ' in play · ' + (R.where || ''));
+    set('ed-pnl', settled.length ? signed(pnl) : '$0.00', Math.sign(pnl));
+    set('ed-pnl-sub', settled.length ? settled.filter((t) => t.result === 'Won').length + ' won, ' + settled.filter((t) => t.result === 'Lost').length + ' lost · checkpoint after 20 trades' : 'No trades settled yet · checkpoint after 20 trades');
+    set('ed-chip', (E.cards || []).filter((c) => c.status === 'Proposed').length + ' cards waiting on you');
+    if (R.only) set('ed-rules', 'Before each big news event Claude writes a card: the facts, what the market already expects, the bet, the most to pay, and the most you can lose. You decide and place it; every trade is graded here. ' + R.only);
+    const c2 = (v) => v === '' || v === undefined ? '' : Math.round(N(v) * 100) + '\u00a2';
+    fill('ed-cards', (E.cards || []).slice().reverse(), (tr, c) => {
+      cell(tr, c.id, 'nw'); cell(tr, c.event); cell(tr, c.idea, 'nw'); cell(tr, c2(c.market_price), 'n'); cell(tr, c2(c.our_price), 'n'); cell(tr, c2(c.max_price), 'n');
+      cell(tr, c.reason, 'long'); pill(tr, c.status, c.status === 'Placed' ? 'won' : c.status === 'Passed' ? 'open' : 'warnp');
+    });
+    fill('ed-trades', T.slice().reverse(), (tr, t) => {
+      cell(tr, t.card, 'nw'); cell(tr, t.placed, 'nw'); cell(tr, t.bet, 'nw'); cell(tr, c2(t.paid), 'n'); cell(tr, money(N(t.cost)), 'n');
+      pill(tr, t.result || 'Open', resCls(t.result)); cell(tr, t.pnl === '' || t.pnl === undefined ? '' : signed(N(t.pnl)), 'n', Math.sign(N(t.pnl)));
+    });
   }
 
   let MD_SIG = 'Always';
@@ -552,7 +595,9 @@ footer{color:var(--muted);font-size:12px}
     try {
       const r = await fetch('data.json?t=' + Date.now(), {cache: 'no-store'});
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      DATA = await r.json(); render();
+      DATA = await r.json();
+      try { const e = await fetch('inbox/event_desk.json?t=' + Date.now(), {cache: 'no-store'}); if (e.ok) DATA._event = await e.json(); } catch (_) {}
+      render();
     } catch (e) {
       if (!DATA) set('updated', 'Could not load the data right now. It refreshes every 10 minutes.');
     }
