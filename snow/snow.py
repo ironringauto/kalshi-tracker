@@ -446,7 +446,8 @@ def render(data):
     models = ", ".join(data["sources_ok"])
     return TEMPLATE.format(stamp=stamp, call=esc(data["call"]), alerts=alerts, provo=provo,
                            cards="".join(cards), rows="".join(rows), models=esc(models),
-                           warn=('<p class="warn">' + esc("; ".join(data["warnings"])) + "</p>") if data["warnings"] else "")
+                           warn=('<p class="warn">Missing tonight: ' + esc("; ".join(w for w in data["warnings"] if "Open-Meteo" not in w)) + "</p>")
+                           if any("Open-Meteo" not in w for w in data["warnings"]) else "")
 
 
 def main():
