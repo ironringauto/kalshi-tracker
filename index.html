@@ -404,7 +404,7 @@ footer{color:var(--muted);font-size:12px}
     const c2 = (v) => v === '' || v === undefined ? '' : Math.round(N(v) * 100) + '\u00a2';
     fill('ed-cards', (E.cards || []).slice().reverse(), (tr, c) => {
       cell(tr, c.id, 'nw'); cell(tr, c.event); cell(tr, c.idea, 'nw'); cell(tr, c2(c.market_price), 'n'); cell(tr, c2(c.our_price), 'n'); cell(tr, c2(c.max_price), 'n');
-      cell(tr, c.reason, 'long'); pill(tr, c.status, c.status === 'Placed' ? 'won' : c.status === 'Passed' ? 'open' : 'warnp');
+      cell(tr, c.reason, 'long'); pill(tr, c.status, (c.status === 'Placed' || c.status === 'Go') ? 'won' : c.status === 'Passed' ? 'open' : 'warnp');
     });
     fill('ed-trades', T.slice().reverse(), (tr, t) => {
       cell(tr, t.card, 'nw'); cell(tr, t.placed, 'nw'); cell(tr, t.bet, 'nw'); cell(tr, c2(t.paid), 'n'); cell(tr, money(N(t.cost)), 'n');

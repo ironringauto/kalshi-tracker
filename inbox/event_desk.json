@@ -10,17 +10,17 @@
   {
    "id": "E1",
    "made": "2026-11-16",
-   "event": "Nvidia Q3 earnings call (Tue Nov 17, call about 3pm MT)",
+   "event": "Nvidia Q3 earnings call (Tue Nov 17 after the close; interim CEO Colette Kress leads)",
    "market": "Kalshi: What will NVIDIA say during their next earnings call? (KXEARNINGSMENTIONNVDA)",
    "idea": "TSMC: NO",
    "side": "no",
    "market_price": 0.73,
-   "our_price": 0.85,
-   "max_price": 0.78,
+   "our_price": 0.8,
+   "max_price": 0.75,
    "stake": 10,
    "confidence": "med",
-   "reason": "TSMC was said in 0 of Nvidia's last 3 calls (Feb, May, Aug 2026). Market says 27% it gets said; we estimate about 15%.",
-   "status": "Proposed"
+   "reason": "TSMC was said in 0 of the last 3 calls (Feb, May, Aug 2026). Refreshed 8:15am Nov 17: call is led by interim CEO Colette Kress after Jensen Huang resigned; expected questions center on China, Washington scrutiny and guidance, not suppliers. Market 27% yes; we estimate about 20%. Check the contract rules first: if analysts' words count, skip.",
+   "status": "Go"
   },
   {
    "id": "E2",
@@ -34,8 +34,8 @@
    "max_price": 0.58,
    "stake": 10,
    "confidence": "low",
-   "reason": "Taiwan was said in 1 of the last 3 calls, and only in passing (a cloud customer in Taiwan). Risk: China export and governance questions could bring it up in Q&A.",
-   "status": "Proposed"
+   "reason": "Refreshed 8:15am Nov 17: PASS. The call will focus on China chip diversion and Washington scrutiny, which raises the chance Taiwan comes up. At 50% the market looks about right.",
+   "status": "Passed"
   },
   {
    "id": "E3",
@@ -53,5 +53,15 @@
    "status": "Passed"
   }
  ],
- "trades": []
+ "trades": [
+  {
+   "card": "E1",
+   "placed": "Nov 17 (paper)",
+   "bet": "TSMC NO (paper, 13 at 73c)",
+   "paid": 0.73,
+   "cost": 9.49,
+   "result": "Open",
+   "pnl": ""
+  }
+ ]
 }
