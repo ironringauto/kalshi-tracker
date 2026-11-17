@@ -1,19 +1,24 @@
 {
- "date": "2026-11-16",
+ "date": "2026-11-17",
  "national_risk": "low",
  "national_reason": "",
  "states": {},
  "sources": [
   {
-   "title": "NYMEX RBOB futures (data.json wholesale): close 2.5828, -3.9c 1-day, -6.8c over 5 sessions",
+   "title": "NYMEX RBOB futures (data.json wholesale): close 2.5137, -2.4c 1-day, -15.7c over 3 sessions",
    "url": "https://finance.yahoo.com/quote/RB=F/",
-   "date": "2026-11-16"
+   "date": "2026-11-17"
   },
   {
-   "title": "Oil steadies after deep weekly slump with focus on Iran talks",
-   "url": "https://www.energyconnects.com/news/oil/2026/november/oil-steadies-after-deep-weekly-slump-with-focus-on-iran-talks/",
-   "date": "2026-11-14"
+   "title": "Crude Oil Prices Fall on Global Supply Surplus Outlook (Brent ~$91.8, WTI ~$85.2)",
+   "url": "https://hdfcsky.com/news/brent-crude-oil-price-today-november-17-2026-brent-falls-0-7percent-to-91-8-wti-slips-to-85-2-as-surplus-looms",
+   "date": "2026-11-17"
+  },
+  {
+   "title": "U.S. diesel prices slip below $6 in AAA's November 16 reading",
+   "url": "https://finchannel.com/u-s-diesel-prices-slip-below-6-in-aaas-november-16-reading/141933/americas/america/2026/11",
+   "date": "2026-11-16"
   }
  ],
- "made_utc": "2026-11-16T13:44:03+00:00"
+ "made_utc": "2026-11-17T13:44:09+00:00"
 }
