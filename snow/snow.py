@@ -440,11 +440,25 @@ def render_map(resorts):
         tip = f'{r["name"]}: ~{r["total5"]:.0f}" next 5 days; best morning {best["label"]} ~{best["ovn"]:.0f}"'
         out.append(f'<a href="#{r["id"]}"><title>{esc(tip)}</title>'
                    f'<line x1="{x:.0f}" y1="{y:.0f}" x2="{lx:.0f}" y2="{ly - 4:.0f}" class="ld"/>'
-                   f'<circle cx="{x:.0f}" cy="{y:.0f}" r="{rad:.1f}" class="dot {color(best["score"])}"/>'
+                   f'<circle id="dot-{r["id"]}" cx="{x:.0f}" cy="{y:.0f}" r="{rad:.1f}" class="dot {color(best["score"])}"/>'
                    f'<text x="{lx:.0f}" y="{ly:.0f}" text-anchor="{anchor}" class="rl">{esc(r["name"])} '
-                   f'<tspan class="rv">{r["total5"]:.0f}"</tspan></text></a>')
+                   f'<tspan id="val-{r["id"]}" class="rv">{r["total5"]:.0f}"</tspan></text></a>')
     out.append("</svg>")
-    return "".join(out)
+    # playback frames: for each morning, the night before (4 pm-9 am), then that day (9 am-4 pm)
+    days0 = resorts[0]["days"]
+    frames = []
+    for i, d in enumerate(days0):
+        prev = days0[i - 1]["dow"] if i else "Tonight"
+        frames.append(f'{prev} night → {d["dow"]} {d["dnum"]} 9 am' if i else f'Tonight → {d["dow"]} {d["dnum"]} 9 am')
+        frames.append(f'{d["dow"]} {d["dnum"]} daytime')
+    pdata = {"labels": frames, "far": [d["nws_ovn"] is None for d in days0 for _ in (0, 1)],
+             "r": {r["id"]: {"t": round(r["total5"], 1),
+                             "f": [v for d in r["days"] for v in (round(d["ovn"], 1), round(d["day"], 1))],
+                             "c": color(max(r["days"][:5], key=lambda d: d["score"])["score"])} for r in resorts}}
+    ctl = ('<div class="play"><button type="button" id="playbtn" aria-label="Play forecast">▶</button>'
+           f'<input type="range" id="fslider" min="0" max="{len(frames)}" value="0" step="1" aria-label="Forecast time">'
+           '<span id="flabel">Next 5 days, total</span></div>')
+    return "".join(out) + ctl + '<script id="pdata" type="application/json">' + json.dumps(pdata).replace("</", "<\\/") + "</script>"
 
 
 def render_card(r, scale):
@@ -484,7 +498,10 @@ def render(data):
         if reg != "UT":
             rs.sort(key=lambda r: -r["total5"])
         scale = max([12] + [d["ovn"] for r in rs for d in r["days"]])
-        secs.append(f'<h2>{REGION_NAMES[reg]}</h2><div class="grid">{"".join(render_card(r, scale) for r in rs)}</div>')
+        top = max(rs, key=lambda r: r["total5"])
+        secs.append(f'<details class="reg" id="reg-{reg}" open><summary><span class="rt">{REGION_NAMES[reg]}</span>'
+                    f'<span class="rs">{len(rs)} resorts · most snow next 5 days: {esc(top["name"])} ~{top["total5"]:.0f}"</span></summary>'
+                    f'<div class="grid">{"".join(render_card(r, scale) for r in rs)}</div></details>')
     alerts = "".join(f'<div class="alert {a["level"]}">{esc(a["text"])}</div>' for a in data["alerts"])
     provo = esc(data["provo"]["text"]) if data.get("provo") else ""
     stamp = datetime.fromisoformat(data["generated"]).astimezone(ZoneInfo("America/Denver")).strftime("%a %b %-d, %-I:%M %p MT")
@@ -574,6 +591,21 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
 .bar.far .v,.bar.far .dl{opacity:.65}
 .rng{color:var(--mut);font-size:10px}
 .dl{color:var(--mut);margin-top:1px;line-height:1.2}
+.play{display:flex;align-items:center;gap:10px;margin:8px 4px 2px}
+.play button{width:36px;height:36px;border-radius:50%;border:none;background:var(--s2);color:#fff;font-size:15px;cursor:pointer;flex:none}
+.play input{flex:1;accent-color:var(--s2)}
+#flabel{font-size:13.5px;font-weight:600;min-width:170px;text-align:right}
+#flabel.far{color:var(--mut);font-style:italic}
+.map .dot{transition:r .35s ease}
+details.reg{margin-top:20px}
+details.reg>summary{list-style:none;cursor:pointer;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:6px 2px 10px}
+details.reg>summary::-webkit-details-marker{display:none}
+details.reg>summary::before{content:"▾";color:var(--mut);font-size:13px;width:12px}
+details.reg:not([open])>summary::before{content:"▸"}
+.rt{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink);font-weight:700}
+.rs{font-size:12.5px;color:var(--mut)}
+.key{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--mut);margin-top:18px}
+.key b{color:var(--ink)}
 .read{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14.5px}
 .foot{color:var(--mut);font-size:12.5px;margin-top:22px}
 .warn{color:var(--warn);font-size:12px}
@@ -583,12 +615,13 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
 <div class="alerts">{{alerts}}</div>
 <div class="provo">{{provo}}</div>
 
-<h2>Where the snow is headed (next 5 days)</h2>
+<h2>Where the snow is headed: projected totals, press play to step through each night and day</h2>
 <div class="mapbox">{{map}}
-<div class="maprow"><div class="legend"><span>Dot size = snow in the next 5 days · color = best powder morning:</span><span><i style="background:var(--s3)"></i>go</span><span><i style="background:var(--s2)"></i>good</span><span><i style="background:var(--s1)"></i>refresh</span><span><i style="background:var(--s0)"></i>little or none</span></div>
+<div class="maprow"><div class="legend"><span>Dot size = projected snow · color:</span><span><i style="background:var(--s3)"></i>go</span><span><i style="background:var(--s2)"></i>good</span><span><i style="background:var(--s1)"></i>refresh</span><span><i style="background:var(--s0)"></i>little or none</span></div>
 <div class="links"><a class="primary" href="https://www.windy.com/-Weather-radar-radar?radar,41.0,-112.0,5">Live radar (whole West)</a><a href="https://radar.weather.gov/station/kmtx/standard">Salt Lake radar</a><a href="https://www.windy.com/-Snow-accumulation-snowAccu?snowAccu,40.6,-111.6,6">Snow forecast map</a></div></div>
 </div>
 
+<div class="key"><b>What the score means:</b> the number in each card's corner rates that resort's best powder morning in the window, 0 to 10. It is mostly overnight snow before first chair (about 3" = 3.5, 6" = 6, 10" = 7.6, 15" = 9), minus points when the forecasts disagree, gusts top 35 mph (lift holds), temps run above freezing (heavy snow), or it lands on a Utah weekend (crowds). 6+ is a go day, 3.5 to 6 is good, under 3.5 is a refresh. Tap a region name to hide or show it.</div>
 {{sections}}
 
 <h2>Forecaster's read (NWS Salt Lake City)</h2>
@@ -606,6 +639,30 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
 <p><b>How to read it.</b> Each bar is snow expected between 4 pm and 9 am before that morning: the official NWS snowfall forecast averaged with the median of the independent weather models. Small numbers under a bar are the low-high range across sources. Faded, striped bars are past the NWS forecast range (about 7 days) and come from the weather models alone, with no NWS forecaster input, so treat them as an early look. Sources this run: {{models}}. The score (0 to 10) starts from overnight snow and loses points for low agreement, gusts over 35 mph, above-freezing temps, and Utah weekends. Snow on the ground comes from the nearest SNOTEL station (measured, not resort-reported). Tap a map dot to jump to that resort, and tap a bar for its details. The live radar can't run inside this page, so the radar buttons open it in a new tab.</p>
 {{warn}}
 </div>
+<script>
+(function(){
+  var P;try{P=JSON.parse(document.getElementById("pdata").textContent)}catch(e){return}
+  var sl=document.getElementById("fslider"),lb=document.getElementById("flabel"),btn=document.getElementById("playbtn"),timer=null;
+  function rad(v,total){return total?4+Math.min(9,Math.sqrt(Math.max(v,0))*1.3):(v<0.5?3:4+Math.min(11,Math.sqrt(v)*2.6))}
+  function cls(v){return v>=8?"s3":v>=4?"s2":v>=1?"s1":"s0"}
+  function show(i){
+    var total=i==0;lb.textContent=total?"Next 5 days, total":P.labels[i-1]+(P.far[i-1]?" (models only)":"");
+    lb.className=(!total&&P.far[i-1])?"far":"";
+    for(var id in P.r){var d=P.r[id],v=total?d.t:(d.f[i-1]||0),c=document.getElementById("dot-"+id),t=document.getElementById("val-"+id);
+      if(!c||!t)continue;c.setAttribute("r",rad(v,total).toFixed(1));c.setAttribute("class","dot "+(total?d.c:cls(v)));t.textContent=Math.round(v)+'"';}
+  }
+  sl.addEventListener("input",function(){show(+sl.value)});
+  btn.addEventListener("click",function(){
+    if(timer){clearInterval(timer);timer=null;btn.textContent="▶";return}
+    btn.textContent="❚❚";if(+sl.value>=+sl.max)sl.value=0;
+    timer=setInterval(function(){var n=+sl.value+1;if(n>+sl.max){clearInterval(timer);timer=null;btn.textContent="▶";return}sl.value=n;show(n)},900);
+  });
+  document.querySelectorAll("details.reg").forEach(function(d){
+    try{if(localStorage.getItem("snow-hide-"+d.id)==="1")d.removeAttribute("open")}catch(e){}
+    d.addEventListener("toggle",function(){try{localStorage.setItem("snow-hide-"+d.id,d.open?"0":"1")}catch(e){}});
+  });
+})();
+</script>
 </div></body></html>
 """
 
