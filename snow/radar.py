@@ -159,3 +159,99 @@ def build(out_dir, now=None, log=print):
         w, e = w - 360, e - 360
     return {"run": run.isoformat(), "times": times, "nx": nx, "ny": ny,
             "north": n, "south": s_, "west": w, "east": e}
+
+
+# ---------- HRRR: 3 km, hourly, next 48 hours, western US (future radar only) ----------
+HR_BOX = dict(toplat=49.5, bottomlat=31, leftlon=-125, rightlon=-102)
+HR_RES = 0.04          # output grid, degrees (~4 km)
+HR_CHUNK = 12          # frames per sprite file (keeps each image small enough for iPhone)
+
+
+def latest_hrrr(now):
+    t = now.replace(minute=0, second=0, microsecond=0)
+    t -= timedelta(hours=t.hour % 6)
+    for _ in range(4):
+        d, h = t.strftime("%Y%m%d"), t.strftime("%H")
+        try:
+            http(f"{BASE}/pub/data/nccf/com/hrrr/prod/hrrr.{d}/conus/hrrr.t{h}z.wrfsfcf48.grib2.idx", tries=1, timeout=30)
+            return t
+        except Exception:
+            t -= timedelta(hours=6)
+    raise RuntimeError("no complete HRRR run found")
+
+
+def fetch_hrrr(run, fh):
+    d, h = run.strftime("%Y%m%d"), run.strftime("%H")
+    q = (f"dir=%2Fhrrr.{d}%2Fconus&file=hrrr.t{h}z.wrfsfcf{fh:02d}.grib2"
+         "&var_REFC=on&var_CSNOW=on&var_CRAIN=on&var_CFRZR=on&var_CICEP=on&var_TMP=on"
+         "&lev_entire_atmosphere=on&lev_surface=on&lev_2_m_above_ground=on&subregion="
+         + "".join(f"&{k}={v}" for k, v in HR_BOX.items()))
+    return http(f"{BASE}/cgi-bin/filter_hrrr_2d.pl?{q}", timeout=150)
+
+
+def build_hrrr(out_dir, now=None, log=print):
+    ensure_libs()
+    import numpy as np, pygrib
+    from PIL import Image
+    try:
+        from scipy.spatial import cKDTree
+    except ImportError:
+        subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--break-system-packages", "scipy"], check=False)
+        from scipy.spatial import cKDTree
+    now = now or datetime.now(timezone.utc)
+    run = latest_hrrr(now)
+    hours = [fh for fh in range(1, 49) if run + timedelta(hours=fh) >= now - timedelta(hours=1)]
+    lats_o = np.arange(HR_BOX["toplat"], HR_BOX["bottomlat"] - 1e-9, -HR_RES)
+    lons_o = np.arange(HR_BOX["leftlon"], HR_BOX["rightlon"] + 1e-9, HR_RES)
+    ny, nx = len(lats_o), len(lons_o)
+    k = math.cos(math.radians(40))
+    idx = None
+    frames, times = [], []
+
+    def one(fh):
+        return fh, fetch_hrrr(run, fh)
+    with ThreadPoolExecutor(4) as ex:
+        results = list(ex.map(one, hours))
+    for fh, blob in results:
+        path = f"/tmp/hrrr_{os.getpid()}_{fh}.grb2"
+        with open(path, "wb") as f:
+            f.write(blob)
+        v = {}
+        try:
+            for m in pygrib.open(path):
+                sn = m.shortName
+                if sn == "refc":
+                    v["refc"] = m.values
+                elif sn in ("csnow", "crain", "cfrzr", "cicep"):
+                    v[sn] = m.values
+                elif sn == "2t":
+                    v["t2"] = m.values - 273.15
+                if idx is None:
+                    la, lo = m.latlons()
+                    tree = cKDTree(np.column_stack([la.ravel(), lo.ravel() * k]))
+                    gy, gx = np.meshgrid(lats_o, lons_o, indexing="ij")
+                    dist, idx = tree.query(np.column_stack([gy.ravel(), gx.ravel() * k]))
+                    far = dist > 0.06
+        finally:
+            os.remove(path)
+        if "refc" not in v:
+            log(f"HRRR f{fh:02d}: no reflectivity")
+            continue
+        g = lambda name: np.asarray(v.get(name, np.zeros_like(v["refc"]))).ravel()[idx]
+        dbz, t2 = g("refc"), g("t2")
+        sn, rn, ice = g("csnow"), g("crain"), g("cfrzr") + g("cicep")
+        lvl = np.clip(((dbz - 12) // 5 + 1), 0, 8).astype("uint8")
+        lvl[dbz < 12] = 0
+        kind = np.where(ice > 0.5, 3, np.where(sn > 0.5, np.where(rn > 0.5, 3, 2), np.where(rn > 0.5, 1, np.where(t2 <= 0.5, 2, 1))))
+        b = np.where(lvl > 0, kind * 16 + lvl, 0).astype("uint8")
+        b[far] = 0
+        frames.append(b.reshape(ny, nx))
+        times.append((run + timedelta(hours=fh)).isoformat())
+    os.makedirs(out_dir, exist_ok=True)
+    files = []
+    for c in range(0, len(frames), HR_CHUNK):
+        name = f"hrrr{c // HR_CHUNK}.png"
+        Image.fromarray(np.vstack(frames[c:c + HR_CHUNK]), "L").save(os.path.join(out_dir, name), optimize=True)
+        files.append({"file": name, "n": len(frames[c:c + HR_CHUNK])})
+    return {"run": run.isoformat(), "times": times, "nx": nx, "ny": ny, "north": float(lats_o[0]),
+            "south": float(lats_o[-1]), "west": float(lons_o[0]), "east": float(lons_o[-1]), "chunks": files}
