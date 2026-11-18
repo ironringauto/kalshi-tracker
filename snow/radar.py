@@ -146,7 +146,7 @@ def build(out_dir, now=None, log=print):
         rate = step / max(hrs, 1)
         # GFS is a 25 km grid: smooth it so offshore and Canada/Mexico areas are not blocky
         from scipy.ndimage import gaussian_filter
-        rate = gaussian_filter(rate, 0.85)
+        rate = gaussian_filter(rate, 0.6)
         lvl = np.zeros((ny, nx), "uint8")
         for i, b in enumerate(RATE_BINS):
             lvl[rate >= b] = i + 1

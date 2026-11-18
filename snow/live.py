@@ -28,6 +28,7 @@ SOURCES = {
                                      (178920, "SR-39 @ Trappers Loop"), (179622, "I-84 @ Trappers Loop")])],
                   "status": [], "x": [("UtahDOT", r"Ogden|Weber|I-?84|Trappers|SR-?167|SR-?39|Snowbasin|Huntsville")]},
     "targhee": {"ots": "wyoming/grand-targhee-resort",
+                "imgpage": ("https://www.grandtarghee.com/the-mountain/cams-conditions/webcams", r"https://copyrighted\.seejh\.com/gtr\w+/gtr\w+\.jpg"),
                 "road": [("idaho", [(963, "SH-33 at WY/ID line"), (987, "SH-31 Pine Creek Pass")]),
                          ("wydot", ["WYO22TetonPass"])],
                 "status": [("wydot", "Jackson", r"WY ?22|WYO ?22")],
@@ -125,8 +126,11 @@ def save_jpg(url, path, width=720):
 
 
 # ---------------------------------------------------------------- fetchers
+_OTS_SEEN = {}
+_X_MARKED = set()
 def ots_cams(slug, n=4, max_age_h=30):
     h = http(f"https://www.onthesnow.com/{slug}/webcams")
+    _OTS_SEEN[slug] = "ots-webcams.s3.amazonaws.com" in h
     cams = {}
     for m in re.finditer(r'https://ots-webcams\.s3\.amazonaws\.com/(\d+)/(\d+)/(\d{4}-\d\d-\d\d_\d{4})/la\.jpg"\s+alt="([^"]*)"', h):
         _, cid, ts, alt = m.groups()
@@ -365,9 +369,79 @@ def x_posts(handle):
         seen.add(txt[:60])
         media = re.findall(r'"media_url_https":"(https://pbs\.twimg\.com/(?:media|amplify_video_thumb|ext_tw_video_thumb)/[^"]+)"', x2[ft.end():end])
         out.append({"handle": handle, "t": t, "text": txt, "media": media[0] if media else None})
+    if not out:
+        out = x_posts_embed(handle)
     out.sort(key=lambda p: p["t"], reverse=True)
     _x[handle] = out
     return out
+
+
+def x_posts_embed(handle):
+    """Fallback: the public embed timeline (used when X changes its profile page)."""
+    try:
+        h = http(f"https://syndication.twitter.com/srv/timeline-profile/screen-name/{handle}", timeout=25)
+    except Exception:
+        return []
+    m = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', h, re.S)
+    if not m:
+        return []
+    out = []
+    try:
+        ents = json.loads(m.group(1))["props"]["pageProps"]["timeline"]["entries"]
+    except Exception:
+        return []
+    for e in ents:
+        tw = (e.get("content") or {}).get("tweet") or {}
+        txt = tw.get("full_text") or tw.get("text")
+        if not txt or txt.startswith("RT @"):
+            continue
+        try:
+            t = datetime.strptime(tw["created_at"], "%a %b %d %H:%M:%S %z %Y")
+        except Exception:
+            continue
+        media = [x.get("media_url_https") for x in (tw.get("entities", {}).get("media") or []) if x.get("media_url_https")]
+        out.append({"handle": handle, "t": t, "text": html.unescape(re.sub(r"\s*https://t\.co/\w+\s*$", "", txt)).strip(),
+                    "media": media[0] if media else None})
+    return out
+
+
+# ---------------------------------------------------------------- health
+# Every source records whether it worked this run. The scheduled task reads data.json "live_health"
+# and repairs anything marked broken (a site changed its page or API).
+HEALTH = {}
+def mark(source, ok, note=""):
+    h = HEALTH.setdefault(source, {"ok": 0, "fail": 0, "notes": []})
+    h["ok" if ok else "fail"] += 1
+    if note and len(h["notes"]) < 3 and note not in h["notes"]:
+        h["notes"].append(note[:160])
+
+
+EXPECT = {  # source -> what it feeds, for the report
+    "onthesnow": "resort cam photos", "youtube": "Brighton/Solitude live-stream cams", "resort pages": "Sugar Bowl/Targhee cams",
+    "udot cottonwood": "Cottonwood road status, parking signs and canyon cams", "udot cams": "Snowbasin road cams",
+    "idaho 511": "Targhee road cams", "wydot cams": "Teton Pass cams", "wydot report": "Wyoming road report",
+    "cdot cams": "Colorado road cams", "cdot events": "Colorado road status", "caltrans cams": "California road cams",
+    "caltrans chains": "California chain controls", "x": "X posts", "avalanche": "avalanche danger", "photos": "photo downloads",
+}
+
+
+def health_report(res):
+    problems = []
+    for src, h in sorted(HEALTH.items()):
+        if h["ok"] == 0 and h["fail"] > 0:
+            problems.append({"source": src, "feeds": EXPECT.get(src, src), "level": "broken",
+                             "detail": "; ".join(h["notes"]) or "returned nothing"})
+        elif h["fail"] > max(2, h["ok"]):
+            problems.append({"source": src, "feeds": EXPECT.get(src, src), "level": "degraded",
+                             "detail": f"{h['fail']} of {h['ok'] + h['fail']} failed: " + "; ".join(h["notes"])})
+    for rid, r in res.items():
+        if not r["mtn"]:
+            problems.append({"source": "resort cams", "feeds": rid, "level": "gap", "detail": f"{rid}: no fresh resort cam photos"})
+        if not r["road"]:
+            problems.append({"source": "road cams", "feeds": rid, "level": "gap", "detail": f"{rid}: no road cam photos"})
+    return {"sources": HEALTH, "problems": problems,
+            "status": "broken" if any(p["level"] == "broken" for p in problems) else
+                      "degraded" if any(p["level"] == "degraded" for p in problems) else "ok"}
 
 
 # ---------------------------------------------------------------- build
@@ -391,31 +465,42 @@ def build(out_dir, resorts_pos, log=print):
         # mountain cams
         if src.get("ots"):
             try:
-                for i, c in enumerate(ots_cams(src["ots"])):
+                oc = ots_cams(src["ots"])
+                mark("onthesnow", True) if _OTS_SEEN.get(src["ots"]) else mark("onthesnow", False, f"{src['ots']}: no cams found on page")
+                for i, c in enumerate(oc):
                     r["mtn"].append({"src": img(c["url"], f"{rid}_m{i}.jpg"), "title": c["title"], "t": c["t"].isoformat(),
                                      "link": f"https://www.onthesnow.com/{src['ots']}/webcams"})
             except Exception as e:
+                mark("onthesnow", False, f"{src['ots']}: {e}")
                 r["errors"].append(f"resort cams: {e}")
         if src.get("yt") and len(r["mtn"]) < 4:
             try:
-                for c in yt_cams(src["yt"]):
+                yc = yt_cams(src["yt"])
+                mark("youtube", bool(yc), "" if yc else f"{src['yt']}: no live streams found")
+                for c in yc:
                     if len(r["mtn"]) >= 4:
                         break
                     i = len(r["mtn"])
                     r["mtn"].append({"src": img(c["url"], f"{rid}_m{i}.jpg", c["alt"]), "title": c["title"], "t": now.isoformat(),
                                      "video": c["video"], "live": True})
             except Exception as e:
+                mark("youtube", False, str(e))
                 r["errors"].append(f"resort live streams: {e}")
         if src.get("imgpage") and len(r["mtn"]) < 4:
             try:
-                for u in page_imgs(*src["imgpage"]):
+                pi = page_imgs(*src["imgpage"])
+                mark("resort pages", bool(pi), "" if pi else f"{src['imgpage'][0]}: no cam images found")
+                for u in pi:
                     if len(r["mtn"]) >= 4:
                         break
                     i = len(r["mtn"])
-                    nm = re.sub(r"[-_\d.]+jpg$", "", u.rsplit("/", 1)[-1]) or "Resort cam"
+                    nm = re.sub(r"[-_\d.]+jpg$", "", u.rsplit("/", 1)[-1].split("?")[0]).replace(".jpg", "") or "Resort cam"
+                    nm = {"gtrcolter": "Colter", "gtrdream": "Dreamcatcher", "gtrplaza": "Plaza", "gtrsnowstick": "Snow stick",
+                          "gtrsummit": "Summit"}.get(nm, nm)
                     r["mtn"].append({"src": img(u, f"{rid}_m{i}.jpg"), "title": re.sub(r"(?<=[a-z])(?=[A-Z])", " ", nm), "t": now.isoformat(),
                                      "link": src["imgpage"][0]})
             except Exception as e:
+                mark("resort pages", False, str(e))
                 r["errors"].append(f"resort page cams: {e}")
         # road cams
         n = 0
@@ -446,6 +531,9 @@ def build(out_dir, resorts_pos, log=print):
                     lst = [(u, t, sm.get(u)) for u, t in spec[1]]
                 else:
                     lst = []
+                rk = {"cc": "udot cottonwood", "udot": "udot cams", "idaho": "idaho 511", "wydot": "wydot cams", "cdot": "cdot cams",
+                      "cdotq": "cdot cams", "ct": "caltrans cams"}.get(kind, kind)
+                mark(rk, bool(lst), "" if lst else f"{rid}: no cams matched")
                 for item in lst:
                     u, title = item[0], item[1]
                     vid = item[2] if len(item) > 2 and item[2] and ".m3u8" in item[2] else None
@@ -457,18 +545,25 @@ def build(out_dir, resorts_pos, log=print):
                     r["road"].append(c)
                     n += 1
             except Exception as e:
+                mark({"cc": "udot cottonwood", "udot": "udot cams", "idaho": "idaho 511", "wydot": "wydot cams", "cdot": "cdot cams",
+                      "cdotq": "cdot cams", "ct": "caltrans cams"}.get(spec[0], spec[0]), False, f"{rid}: {e}")
                 r["errors"].append(f"road cams {spec[0]}: {e}")
         # road status
         for spec in src.get("status", []):
             try:
                 kind = spec[0]
+                n0 = len(r["status"])
                 if kind == "cc":
                     v = cottonwood()
+                    mark("udot cottonwood", bool(v["cams"].get(LCC)) and bool(v["signs"]),
+                         "" if v["cams"].get(LCC) and v["signs"] else "page layout changed: cams or signs not found")
                     for p in v["posts"]:
                         r["status"].append({"when": p["when"], "text": p["text"], "src": "UDOT Cottonwood Canyons"})
                     r["signs"] = v["signs"]
                 elif kind == "wydot":
-                    for row in wydot_rows(spec[1]):
+                    rows_ = wydot_rows(spec[1])
+                    mark("wydot report", bool(rows_), "" if rows_ else "road report table not found")
+                    for row in rows_:
                         if re.search(spec[2], row["route"], re.I):
                             adv = "" if row["adv"] in ("None", "") else f" · {row['adv']}"
                             r["status"].append({"when": row["when"], "text": f"{row['route']} {row['loc']}: {row['cond']}{adv}", "src": "WYDOT"})
@@ -476,7 +571,9 @@ def build(out_dir, resorts_pos, log=print):
                     routes, (s, w, nn, e) = spec[1], spec[2]
                     seen = set()
                     wx = re.compile(r"Traction|Chain|Icy|Snow|Slush|Closed|Closure|Safety|Wet|Dry|Avalanche|Wind|Visibility", re.I)
-                    evs = sorted(cdot_events(), key=lambda x: (0 if wx.search(json.dumps(x.get("eventDescription", {}))) else 1, x.get("priority", 9)))
+                    _ev = cdot_events()
+                    mark("cdot events", bool(_ev), "" if _ev else "no events returned")
+                    evs = sorted(_ev, key=lambda x: (0 if wx.search(json.dumps(x.get("eventDescription", {}))) else 1, x.get("priority", 9)))
                     for ev in evs:
                         loc, b = ev.get("location") or {}, ev.get("bounds") or {}
                         if loc.get("routeDesignator") not in routes:
@@ -495,7 +592,9 @@ def build(out_dir, resorts_pos, log=print):
                 elif kind == "chain":
                     _, dist, routes, clat, clon, rad = spec
                     worst = {}
-                    for c in chain_status(dist):
+                    _cs = chain_status(dist)
+                    mark("caltrans chains", bool(_cs), "" if _cs else "no stations returned")
+                    for c in _cs:
                         l = c.get("location", {})
                         try:
                             d = km(clat, clon, float(l["latitude"]), float(l["longitude"]))
@@ -516,18 +615,26 @@ def build(out_dir, resorts_pos, log=print):
                         r["status"].append({"when": ts, "text": f"{route}: {txt}{place}", "src": "Caltrans chain controls",
                                             "level": rank})
             except Exception as e:
+                mark({"cc": "udot cottonwood", "wydot": "wydot report", "cdot": "cdot events", "chain": "caltrans chains"}.get(spec[0], spec[0]), False, f"{rid}: {e}")
                 r["errors"].append(f"road status {spec[0]}: {e}")
         # X posts
         posts = []
         for handle, pat in src.get("x", []):
             try:
-                for p in x_posts(handle):
+                xp = x_posts(handle)
+                if handle not in _X_MARKED:
+                    _X_MARKED.add(handle)
+                    mark("x", bool(xp), "" if xp else f"@{handle}: no posts parsed (X page format may have changed)")
+                for p in xp:
                     if now - p["t"] > timedelta(days=4):
                         continue
                     if pat and not re.search(pat, p["text"], re.I):
                         continue
                     posts.append(p)
             except Exception as e:
+                if handle not in _X_MARKED:
+                    _X_MARKED.add(handle)
+                    mark("x", False, f"@{handle}: {e}")
                 r["errors"].append(f"X @{handle}: {e}")
         posts.sort(key=lambda p: p["t"], reverse=True)
         for i, p in enumerate(posts[:3]):
@@ -539,7 +646,9 @@ def build(out_dir, resorts_pos, log=print):
         # avalanche
         try:
             r["avy"] = avalanche(lat, lon)
+            mark("avalanche", bool(r["avy"]), "" if r["avy"] else f"{rid}: no zone found")
         except Exception as e:
+            mark("avalanche", False, str(e))
             r["errors"].append(f"avalanche: {e}")
         res[rid] = r
 
@@ -557,6 +666,7 @@ def build(out_dir, resorts_pos, log=print):
     with ThreadPoolExecutor(10) as ex:
         for f, st in ex.map(dl, jobs):
             ok[f] = st
+            mark("photos", st is True, "" if st is True else f"{f}: {st}")
     bad = 0
     for rid, r in res.items():
         for k in ("mtn", "road"):
@@ -580,7 +690,11 @@ def build(out_dir, resorts_pos, log=print):
                 os.remove(os.path.join(ldir, f))
             except OSError:
                 pass
-    return {"as_of": now.isoformat(), "resorts": res}
+    health = health_report(res)
+    for p in health["problems"]:
+        if p["level"] != "gap":
+            log(f"Live source {p['level']}: {p['source']} ({p['feeds']}): {p['detail']}")
+    return {"as_of": now.isoformat(), "resorts": res, "health": health}
 
 
 if __name__ == "__main__":

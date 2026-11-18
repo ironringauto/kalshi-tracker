@@ -703,6 +703,18 @@ def render_live(r):
     return f'<div class="live">{"".join(out)}</div>' if out else ""
 
 
+def render_health(h):
+    if not h:
+        return ""
+    probs = [p for p in h.get("problems", []) if p["level"] != "gap"]
+    gaps = [p for p in h.get("problems", []) if p["level"] == "gap"]
+    if not probs and not gaps:
+        return '<p class="hc ok">Live source check: every cam, road and post source answered this update.</p>'
+    parts = [f'{esc(p["feeds"])} ({esc(p["level"])})' for p in probs] + [esc(p["detail"]) for p in gaps]
+    cls = "bad" if probs else "ok"
+    return f'<p class="hc {cls}">Live source check: {"; ".join(parts)}. The update task repairs broken sources automatically.</p>'
+
+
 def render_trip(r):
     t = TRIP.get(r["id"])
     if not t:
@@ -736,7 +748,7 @@ def render(data, tzs=None):
     alerts = "".join(f'<div class="alert {a["level"]}">{esc(a["text"])}</div>' for a in data["alerts"])
     provo = esc(data["provo"]["text"]) if data.get("provo") else ""
     stamp = datetime.fromisoformat(data["generated"]).astimezone(ZoneInfo("America/Denver")).strftime("%a %b %-d, %-I:%M %p MT")
-    real = [w for w in data["warnings"] if "Open-Meteo" not in w]
+    real = [w for w in data["warnings"] if "Open-Meteo" not in w and not w.startswith("Live")]
     warn = f'<p class="warn">Missing tonight: {esc("; ".join(real))}</p>' if real else ""
     tzs = tzs or data.get("tzs") or {}
     try:
@@ -752,7 +764,8 @@ def render(data, tzs=None):
             .replace("{{alerts}}", alerts).replace("{{provo}}", provo)
             .replace("{{mdata}}", json.dumps(mdata, separators=(",", ":")).replace("</", "<\\/"))
             .replace("{{sections}}", "".join(secs)).replace("{{models}}", esc(", ".join(data["sources_ok"])))
-            .replace("{{warn}}", warn).replace("{{leafletcss}}", LEAFLET_CSS))
+            .replace("{{warn}}", warn).replace("{{health}}", render_health(data.get("live_health")))
+            .replace("{{leafletcss}}", LEAFLET_CSS))
 
 
 def main():
@@ -775,9 +788,11 @@ def main():
         for r in resorts:
             r["live"] = lv["resorts"].get(r["id"])
         live_asof = lv["as_of"]
+        live_health = lv.get("health")
     except Exception as e:
         log(f"Live cams and roads: {e}")
         live_asof = None
+        live_health = {"status": "broken", "problems": [{"source": "live.py", "feeds": "all cams and roads", "level": "broken", "detail": str(e)[:200]}]}
     srcs = sorted({n for r in resorts for n in r["sources"]})
     radar_meta = None
     try:
@@ -803,7 +818,7 @@ def main():
     data = {"generated": now.isoformat(), "call": call, "alerts": alerts, "weekly_outlook": sunday,
             "provo": provo_outlook(members, now), "resorts": resorts, "afd_slc": afd,
             "sources_ok": srcs, "nws_ok": sum(1 for r in resorts if "NWS" in r["sources"]),
-            "snotel_ok": len(snotel), "warnings": LOG, "radar": radar_meta, "tzs": tzs, "live_asof": live_asof}
+            "snotel_ok": len(snotel), "warnings": LOG, "radar": radar_meta, "tzs": tzs, "live_asof": live_asof, "live_health": live_health}
     json.dump(data, open(os.path.join(out, "data.json"), "w"), indent=1, default=str)
     open(os.path.join(out, "index.html"), "w").write(render(data))
     print(json.dumps({"call": call, "alerts": alerts, "weekly_outlook": sunday, "sources_ok": srcs,
@@ -816,8 +831,8 @@ TEMPLATE = r"""<!DOCTYPE html>
 <title>Snow Tracker</title>
 <style>{{leafletcss}}</style>
 <style>
-:root{--bg:#f6f8fb;--card:#fff;--ink:#14202e;--mut:#5d6b7a;--line:#e3e8ef;--ocean:#d9e6f2;--land:#f3f5f7;--stb:#8c9bab;--cty:#5f6f80;--s0:#c9d1db;--s1:#9cc3ea;--s2:#3f88d6;--s3:#1d3fa8;--bt:#fff;--warn:#b25b00}
-@media (prefers-color-scheme:dark){:root{--bg:#0e141b;--card:#161f2a;--ink:#e8eef5;--mut:#93a1b1;--line:#253242;--ocean:#0a131c;--land:#1a2531;--stb:#4d6176;--cty:#7d90a4;--s0:#3a4757;--s1:#3d6a96;--s2:#4f9be6;--s3:#9ec3ff;--bt:#0e141b}}
+:root{--bg:#f6f8fb;--card:#fff;--ink:#14202e;--mut:#5d6b7a;--line:#e3e8ef;--ocean:#163462;--land:#f3f5f7;--stb:#8c9bab;--cty:#5f6f80;--s0:#c9d1db;--s1:#9cc3ea;--s2:#3f88d6;--s3:#1d3fa8;--bt:#fff;--warn:#b25b00}
+@media (prefers-color-scheme:dark){:root{--bg:#0e141b;--card:#161f2a;--ink:#e8eef5;--mut:#93a1b1;--line:#253242;--ocean:#163462;--land:#1a2531;--stb:#4d6176;--cty:#7d90a4;--s0:#3a4757;--s1:#3d6a96;--s2:#4f9be6;--s3:#9ec3ff;--bt:#0e141b}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
 .wrap{max-width:1040px;margin:0 auto;padding:14px 12px 40px}
@@ -937,6 +952,7 @@ table.hr td.gw{color:#e0602a;font-weight:700}
 #lb.on{display:flex}
 #lb img{max-width:100%;max-height:82vh;border-radius:8px}
 #lb div{color:#fff;font-size:14px;margin-top:8px;text-align:center}
+.hc{font-size:12px;color:var(--mut)}.hc.bad{color:var(--warn)}
 .wxas{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 8px}
 .wxa{font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;background:#fff1e0;color:#8a4b00;text-decoration:none;border:1px solid #f1c48a}
 details.trip{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
@@ -992,7 +1008,8 @@ details.trip[open]>summary::before{content:"▾ "}
 </div>
 
 <div class="foot">
-<p><b>How to read it.</b> The map's weather colors come from NOAA models: for the next 48 hours across the US, the HRRR model (3 km grid; hourly for a day, then every 2 hours), the same model behind most weather apps' future radar; beyond that, and over the ocean, Canada and Mexico, the GFS model (about 25 km grid), every 3 hours for 5 days and every 6 hours after that. Snow totals on the map use GFS throughout so they stay consistent over 10 days. "Future radar" shows what the model expects to be falling at each time; "Snow total" shows snow piled up from now to that time. The model's grid smooths mountain peaks, so its mountain totals usually run lower than the resort numbers. The resort numbers on the map, the charts, and the cards use the finer blended forecast: the official NWS snowfall forecast averaged with the median of the independent weather models. Faded, striped bars and shaded chart areas are past the NWS range (about 7 days) and come from models alone. Sources this run: {{models}}. Snow on the ground comes from the nearest SNOTEL station (measured, not resort-reported). The live radar can't run inside this page, so that button opens it in a new tab.</p>
+<p><b>How to read it.</b> The map's weather colors come from NOAA models: the HRRR model (3 km grid) for the next 48 hours, the same model behind most weather apps' future radar; then the National Blend of Models (2.5 km grid, the starting point for NWS forecasts) out to 10 days in 6-hour steps; and the GFS model (about 25 km, smoothed) only over the ocean, Canada and Mexico. "Future radar" shows what is expected to be falling at each time; "Snow total" shows snow piled up from now to that time. The resort numbers on the map, the charts and the cards use the official NWS snowfall forecast averaged with the median of independent weather models. Faded, striped bars and shaded chart areas are past the NWS range (about 7 days) and come from models alone. Sources this run: {{models}}. Snow on the ground comes from the nearest SNOTEL station (measured, not resort-reported). Cam photos, road status, X posts and avalanche ratings are grabbed from the resorts, state transportation departments, X and avalanche.org at each update (5:39 AM, 11:39 AM and 5:39 PM Mountain), because this page cannot play other sites live; tap "Live video" for a stream.</p>
+{{health}}
 {{warn}}
 </div>
 </div>
@@ -1122,7 +1139,7 @@ details.trip[open]>summary::before{content:"▾ "}
           if(layer=="radar")hv=samp(hd,gA[q],"radar",lat,lon);else{var v0=gA[q]?samp(hd,gA[q],"snow",lat,lon):0,v1=gB[q]?samp(hd,gB[q],"snow",lat,lon):0;hv=(v0===null||v1===null)?null:Math.round(v0*(1-hw2)+v1*hw2)}
           if(hv!==null){hit=true;hc=col(hv,P);if(hd.edge){var ei=Math.round((hm.north-lat)/hd.dlat)*hm.nx+Math.round((lon-hm.west)/hd.dlon);hw=(hd.edge[ei]||0)/255}}break}}}
         var c=hc;
-        if(!hit||hw<0.999){var gc=gvG?col(samp(G,gvG,layer,lat,lon),P):null;
+        if(!hit||hw<0.999){var gc=gvG?col(samp(G,gvG,layer,lat,lon),P):null;if(gc&&hs)gc[3]*=0.45;
           if(!hit)c=gc;else{var a1=hc?hc[3]*hw:0,a2=gc?gc[3]*(1-hw):0,at=a1+a2;c=at>0?[((hc?hc[0]*a1:0)+(gc?gc[0]*a2:0))/at,((hc?hc[1]*a1:0)+(gc?gc[1]*a2:0))/at,((hc?hc[2]*a1:0)+(gc?gc[2]*a2:0))/at,at]:null}}
         if(!c){o[d+3]=0;continue}o[d]=c[0];o[d+1]=c[1];o[d+2]=c[2];o[d+3]=c[3]}}
     x.putImageData(img,0,0)}
@@ -1130,7 +1147,7 @@ details.trip[open]>summary::before{content:"▾ "}
   function fmt(t){return t.toLocaleString([], {weekday:"short",hour:"numeric"})}
   function rel(t){var hh=Math.round((t.getTime()-Date.now())/3600000);if(Math.abs(hh)<=1)return"right now";if(hh<0)return-hh+" hrs ago";if(hh<48)return"in "+hh+" hrs";return"in "+Math.round(hh/24)+" days"}
   function legend(){var g=$("legend");if(layer=="radar"){function sw(p){return'<span class="sw">'+p.map(function(c){return'<i style="background:'+c+'"></i>'}).join("")+"</span>"}
-      g.innerHTML="<span>Light → heavy:</span><span>Snow"+sw(SNOW)+"</span><span>Mix/ice"+sw(MIX)+"</span><span>Rain"+sw(RAIN)+"</span>"}
+      g.innerHTML="<span>Light → heavy:</span><span>Snow"+sw(SNOW)+"</span><span>Mix/ice"+sw(MIX)+"</span><span>Rain"+sw(RAIN)+"</span><span class=\"mut\">Faded, soft colors far offshore and in Canada/Mexico = outside the U.S. high-res models, so only a coarse global model is available there.</span>"}
     else{g.innerHTML="<span>Snow piled up by the time shown:</span>"+SB.map(function(b,i){return'<span><i style="display:inline-block;width:12px;height:10px;background:'+SC[i]+';margin-right:3px"></i>'+b+'"</span>'}).join("")}}
   function show(f){frame=f;var fr=F[f];if(!fr)return;var t=fr.t;
     $("tmain").textContent=fmt(t);
