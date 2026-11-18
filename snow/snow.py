@@ -9,7 +9,7 @@ Sources (no resort-reported numbers):
 Writes OUT/data.json and OUT/index.html. Standard library only.
 Usage: python3 snow.py [--out DIR]
 """
-import json, math, os, statistics, sys, time, urllib.request, urllib.parse
+import json, math, os, re, statistics, sys, time, urllib.request, urllib.parse
 from datetime import datetime, timedelta, date
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor
@@ -170,7 +170,11 @@ def fetch_nws(p):
     tc = expand(g["temperature"]["values"])
     gust = expand(g["windGust"]["values"], 0.6214)
     lvl = expand(g.get("snowLevel", {}).get("values", []), 3.281)
+    pop = expand(g.get("probabilityOfPrecipitation", {}).get("values", []))
+    wind = expand(g.get("windSpeed", {}).get("values", []), 0.6214)
     rows = [row(t, snow.get(t, 0.0), pr.get(t, 0.0), tc.get(t), gust.get(t), lvl.get(t)) for t in sorted(snow)]
+    for r_ in rows:
+        r_["pop"], r_["wind"] = pop.get(r_["t"]), wind.get(r_["t"])
     return pt.get("timeZone"), rows
 
 
@@ -316,6 +320,30 @@ TRIP = {
     "mammoth": ("US-395 + SR-203", OTS + "california/mammoth-mountain-ski-area/webcams",
                 [_ct(395), QUICKMAP, _xs("Mammoth 395")], [ESAC]),
 }
+
+
+def nws_hourly(rows, tzname, now, hours=24, step=3):
+    """NWS grid -> next 24 h in 3-hour columns: snow, temp, wind, gusts, chance of precip."""
+    if not rows:
+        return None
+    tz = ZoneInfo(tzname)
+    start = now.replace(minute=0, second=0, microsecond=0)
+    cols = []
+    for k in range(0, hours, step):
+        a, b = start + timedelta(hours=k), start + timedelta(hours=k + step)
+        sel = [x for x in rows if a < x["t"] <= b]
+        if not sel:
+            continue
+        tcs = [x["tc"] for x in sel if x["tc"] is not None]
+        g = [x["gust"] for x in sel if x.get("gust") is not None]
+        w = [x["wind"] for x in sel if x.get("wind") is not None]
+        p = [x["pop"] for x in sel if x.get("pop") is not None]
+        cols.append({"t": b.astimezone(tz).strftime("%-I%p").lower().replace("m", ""), "day": b.astimezone(tz).strftime("%a"),
+                     "snow": round(sum(x["snow"] for x in sel), 1),
+                     "temp": round(statistics.mean(tcs) * 9 / 5 + 32) if tcs else None,
+                     "wind": round(max(w)) if w else None, "gust": round(max(g)) if g else None,
+                     "pop": round(max(p)) if p else None})
+    return cols
 
 
 def fetch_nws_alerts(resorts):
@@ -582,7 +610,7 @@ def render_card(r, scale):
             f'<div class="next">Tomorrow <b>{nxt["ovn"]:.0f}"</b> · next 5 days ~{r["total5"]:.0f}" · {best_txt}{lvl_txt}</div>'
             f'{render_wx_alerts(r)}'
             f'<div class="bars" style="grid-template-columns:repeat({len(r["days"])},1fr)">{"".join(bars)}</div>'
-            f'{render_trip(r)}</section>')
+            f'{render_hourly(r)}{render_live(r)}{render_trip(r)}</section>')
 
 
 def render_wx_alerts(r):
@@ -598,6 +626,83 @@ def render_wx_alerts(r):
     return f'<div class="wxas">{"".join(out)}</div>' if out else ""
 
 
+def _ts(iso, tz):
+    try:
+        d = datetime.fromisoformat(iso)
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=UTC)
+        return d.astimezone(tz).strftime("%a %-I:%M %p"), d.astimezone(UTC).isoformat()
+    except Exception:
+        return "", ""
+
+
+def render_hourly(r):
+    h = r.get("hourly")
+    if not h:
+        return ""
+    def cell(v, fmt="{}"):
+        return "" if v is None else fmt.format(v)
+    head = "".join(f'<th>{c["t"]}<br><span>{c["day"]}</span></th>' for c in h)
+    snow = "".join(f'<td class="{"sn" if c["snow"] >= 0.5 else ""}">{c["snow"]:g}"</td>' if c["snow"] >= 0.1 else "<td>–</td>" for c in h)
+    temp = "".join(f"<td>{cell(c['temp'], '{}°')}</td>" for c in h)
+    wind = "".join(f'<td class="{"gw" if (c["gust"] or 0) >= 35 else ""}">{cell(c["wind"])}{("/" + str(c["gust"])) if c["gust"] else ""}</td>' for c in h)
+    pop = "".join(f"<td>{cell(c['pop'], '{}%')}</td>" for c in h)
+    return (f'<div class="hrw"><div class="lvt">Next 24 hours (NWS hourly forecast, every 3 hours)</div><div class="hrs"><table class="hr">'
+            f'<tr><th></th>{head}</tr><tr><th>Snow</th>{snow}</tr><tr><th>Temp</th>{temp}</tr>'
+            f'<tr><th>Wind/gust</th>{wind}</tr><tr><th>Precip</th>{pop}</tr></table></div></div>')
+
+
+def render_live(r):
+    lv = r.get("live")
+    if not lv:
+        return ""
+    tz = ZoneInfo(REGION_TZ[r["region"]])
+    t = TRIP.get(r["id"])
+    road_name = t[0] if t else "Road"
+    out = []
+    cams = [("Mountain", c) for c in lv.get("mtn", [])] + [("Road", c) for c in lv.get("road", [])]
+    if cams:
+        figs = []
+        for kind, c in cams:
+            lbl, iso = _ts(c.get("t", ""), tz)
+            vid = c.get("video")
+            vlink = (f'<a class="vid" href="{esc(vid)}" target="_blank" rel="noopener">▶ Live video</a>' if vid else "")
+            figs.append(f'<figure class="cam"><img src="{esc(c["src"])}" alt="{esc(c["title"])}" loading="lazy" data-cap="{esc(kind + ": " + c["title"])}">'
+                        f'<figcaption><span class="ck {kind.lower()}">{kind}</span> {esc(c["title"])}<br><span class="ago" data-t="{iso}">{lbl}</span>{vlink}</figcaption></figure>')
+        out.append(f'<div class="lvt">Live cams <span class="mut">(photos grabbed each update · tap to enlarge · swipe for more)</span></div><div class="cams">{"".join(figs)}</div>')
+    st = lv.get("status") or []
+    signs = [x for x in (lv.get("signs") or []) if x and x != "No message"]
+    if st or lv.get("signs"):
+        items = []
+        for x in st[:3]:
+            lvl = x.get("level", 0) or 0
+            hot = re.search(r"\bclosed\b|closure|chains? (are )?required|R[23]:|traction law (is )?(now )?(in effect|active|enacted)|code 15|code 16", x["text"], re.I)
+            cls = " bad" if (lvl >= 2 or hot) and not re.search(r"lifted|no chain|reopen", x["text"], re.I) else ""
+            when = f'<span class="mut">{esc(x["when"])} · {esc(x["src"])}</span><br>' if x.get("when") else f'<span class="mut">{esc(x["src"])}</span><br>'
+            items.append(f'<li class="rsi{cls}">{when}<div class="xt c4">{esc(x["text"]).replace(chr(10), "<br>")}</div></li>')
+        if lv.get("signs") is not None and r["id"] in ("snowbird", "brighton", "solitude"):
+            items.append(f'<li class="rsi"><span class="mut">Parking signs at the canyon mouth</span><br>{esc(" · ".join(signs)) if signs else "No message posted (lots not reported full)"}</li>')
+        out.append(f'<div class="lvt">Road: {esc(road_name)}</div><ul class="rsl">{"".join(items)}</ul>')
+    norm = lambda t: re.sub(r"[^a-z0-9]", "", t.lower())[:50]
+    seen_st = {norm(x["text"]) for x in st}
+    xs = [x for x in (lv.get("x") or []) if norm(x["text"]) not in seen_st]
+    if xs:
+        items = []
+        for x in xs:
+            lbl, iso = _ts(x["t"], tz)
+            im = f'<img src="{esc(x["img"])}" alt="" loading="lazy" data-cap="@{esc(x["handle"])}">' if x.get("img") else ""
+            items.append(f'<div class="xpost">{im}<div><a href="{esc(x["url"])}" target="_blank" rel="noopener"><b>@{esc(x["handle"])}</b></a> '
+                         f'<span class="ago mut" data-t="{iso}">{lbl}</span><div class="xt">{esc(x["text"]).replace(chr(10), "<br>")}</div></div></div>')
+        out.append(f'<div class="lvt">Latest posts on X</div>{"".join(items)}')
+    a = lv.get("avy")
+    if a:
+        body = a.get("bottom_line") or a.get("advice") or ""
+        out.append(f'<div class="avy" style="border-left-color:{a["color"]}"><span class="dg" style="background:{a["color"]};color:{"#fff" if (a.get("level") or 0) >= 4 else "#111"}">'
+                   f'{esc(a["danger"])}</span> <b>Avalanche danger</b> <span class="mut">{esc(a.get("zone") or "")} · {esc(a.get("center") or "")}</span>'
+                   f'<div class="xt">{esc(body)}</div><a href="{esc(a.get("link") or "#")}" target="_blank" rel="noopener">Full forecast</a></div>')
+    return f'<div class="live">{"".join(out)}</div>' if out else ""
+
+
 def render_trip(r):
     t = TRIP.get(r["id"])
     if not t:
@@ -607,7 +712,7 @@ def render_trip(r):
     nws = f"https://forecast.weather.gov/MapClick.php?lat={lat:.4f}&lon={lon:.4f}"
     def a(lbl, url, cls=""):
         return f'<a{" class=" + chr(34) + cls + chr(34) if cls else ""} href="{esc(url)}" target="_blank" rel="noopener">{esc(lbl)}</a>'
-    return (f'<details class="trip"><summary>Going here? Cams, roads, avalanche</summary>'
+    return (f'<details class="trip"><summary>More: all cams, live video, road maps</summary>'
             f'<div class="tg"><div class="tl">Mountain</div>{a("Live resort cams", cams, "pri")}{a("NWS hourly forecast", nws)}</div>'
             f'<div class="tg"><div class="tl">Road: {esc(road)}</div>{"".join(a(l, u) for l, u in roads)}</div>'
             f'<div class="tg"><div class="tl">Backcountry</div>{"".join(a(l, u) for l, u in avy)}</div>'
@@ -662,6 +767,17 @@ def main():
         sys.exit(2)
     alerts, call, sunday = alerts_and_call(resorts, now.astimezone(ZoneInfo("America/Denver")))
     fetch_nws_alerts(resorts)
+    for r in resorts:
+        r["hourly"] = nws_hourly(members.get(r["id"], {}).get("NWS"), tzs.get(r["id"], REGION_TZ[r["region"]]), now)
+    try:
+        import live as live_mod
+        lv = live_mod.build(out, {r["id"]: POS[r["id"]] for r in resorts}, log=log)
+        for r in resorts:
+            r["live"] = lv["resorts"].get(r["id"])
+        live_asof = lv["as_of"]
+    except Exception as e:
+        log(f"Live cams and roads: {e}")
+        live_asof = None
     srcs = sorted({n for r in resorts for n in r["sources"]})
     radar_meta = None
     try:
@@ -687,7 +803,7 @@ def main():
     data = {"generated": now.isoformat(), "call": call, "alerts": alerts, "weekly_outlook": sunday,
             "provo": provo_outlook(members, now), "resorts": resorts, "afd_slc": afd,
             "sources_ok": srcs, "nws_ok": sum(1 for r in resorts if "NWS" in r["sources"]),
-            "snotel_ok": len(snotel), "warnings": LOG, "radar": radar_meta, "tzs": tzs}
+            "snotel_ok": len(snotel), "warnings": LOG, "radar": radar_meta, "tzs": tzs, "live_asof": live_asof}
     json.dump(data, open(os.path.join(out, "data.json"), "w"), indent=1, default=str)
     open(os.path.join(out, "index.html"), "w").write(render(data))
     print(json.dumps({"call": call, "alerts": alerts, "weekly_outlook": sunday, "sources_ok": srcs,
@@ -786,6 +902,41 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
 .read{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14.5px}
 .foot{color:var(--mut);font-size:12.5px;margin-top:22px}
 .warn{color:var(--warn);font-size:12px}
+.live{margin-top:10px;border-top:1px solid var(--line);padding-top:4px}
+.lvt{font-size:11.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 5px;font-weight:700}
+.lvt .mut{text-transform:none;letter-spacing:0;font-weight:400}
+.mut{color:var(--mut)}
+.cams{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+.cam{flex:0 0 78%;max-width:300px;margin:0;scroll-snap-align:start}
+.cam img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;display:block;background:var(--line);cursor:zoom-in}
+.cam figcaption{font-size:11.5px;line-height:1.3;margin-top:3px}
+.ck{display:inline-block;font-size:10px;font-weight:700;padding:0 5px;border-radius:4px;background:var(--s2);color:#fff}
+.ck.road{background:#6b7785}
+.vid{margin-left:6px;font-weight:700;color:var(--s2);text-decoration:none}
+.rsl{list-style:none;margin:0;padding:0}
+.rsi{font-size:12.5px;line-height:1.35;padding:6px 8px;border-radius:7px;background:var(--bg);border:1px solid var(--line);margin-bottom:5px}
+.rsi.bad{border-left:4px solid #e0602a}
+.xpost{display:flex;gap:8px;font-size:12.5px;line-height:1.35;padding:6px 0;border-bottom:1px solid var(--line)}
+.xpost:last-child{border-bottom:none}
+.xpost img{flex:0 0 74px;width:74px;height:74px;object-fit:cover;border-radius:6px;cursor:zoom-in}
+.xpost a{color:var(--ink);text-decoration:none}
+.xt.c4{-webkit-line-clamp:4}
+.xt{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px}
+.avy{margin-top:10px;font-size:12.5px;line-height:1.35;padding:7px 9px;border-left:5px solid #999;border-radius:7px;background:var(--bg)}
+.avy a{color:var(--s2);font-weight:600;text-decoration:none}
+.dg{font-weight:700;padding:1px 6px;border-radius:5px;font-size:11.5px}
+.hrw{margin-top:8px}
+.hrs{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.hr{border-collapse:collapse;font-size:11.5px;width:100%;min-width:420px}
+table.hr th,table.hr td{text-align:center;padding:3px 2px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.hr th:first-child{text-align:left;color:var(--mut);font-weight:600;padding-right:6px}
+table.hr th span{color:var(--mut);font-weight:400}
+table.hr td.sn{font-weight:700;color:var(--s2)}
+table.hr td.gw{color:#e0602a;font-weight:700}
+#lb{position:fixed;inset:0;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;flex-direction:column;z-index:9999;padding:12px}
+#lb.on{display:flex}
+#lb img{max-width:100%;max-height:82vh;border-radius:8px}
+#lb div{color:#fff;font-size:14px;margin-top:8px;text-align:center}
 .wxas{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 8px}
 .wxa{font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;background:#fff1e0;color:#8a4b00;text-decoration:none;border:1px solid #f1c48a}
 details.trip{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
@@ -866,8 +1017,13 @@ details.trip[open]>summary::before{content:"▾ "}
   var AB=avail(TI.bm),AU=avail(TI.usgs);
   var imgs={};function getImg(src){if(!imgs[src])imgs[src]=new Promise(function(res){var im=new Image();im.onload=function(){res(im)};im.onerror=function(){res(null)};im.src=src});return imgs[src]}
   var Atlas=L.GridLayer.extend({createTile:function(c,done){var t=document.createElement("canvas");t.width=t.height=256;var k=c.z+"/"+c.x+"/"+c.y,o=this.options;
-    if(!o.av[k]){setTimeout(function(){done(null,t)},0);return t}
-    getImg(o.dir+c.z+"_"+Math.floor(c.x/8)+"_"+Math.floor(c.y/8)+".jpg").then(function(im){if(im)t.getContext("2d").drawImage(im,(c.x%8)*256,(c.y%8)*256,256,256,0,0,256,256);done(null,t)});return t}});
+    var z=c.z,x=c.x,y=c.y,dz=0;
+    // no tile at this zoom (open ocean, Canada, Mexico): stretch the nearest lower-zoom tile so there is never a dark gap
+    while(!o.av[(z-dz)+"/"+(x>>dz)+"/"+(y>>dz)]&&dz<4&&z-dz>o.minZoom)dz++;
+    var pz=z-dz,px=x>>dz,py=y>>dz,pk=pz+"/"+px+"/"+py;
+    if(!o.av[pk]){setTimeout(function(){done(null,t)},0);return t}
+    var sz=256>>dz,sx=(x-(px<<dz))*sz,sy=(y-(py<<dz))*sz;
+    getImg(o.dir+pz+"_"+Math.floor(px/8)+"_"+Math.floor(py/8)+".jpg").then(function(im){if(im){var g=t.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(im,(px%8)*256+sx,(py%8)*256+sy,sz,sz,0,0,256,256)}done(null,t)});return t}});
   if(TI.bm){new Atlas({dir:"tiles/bm_",av:AB,minZoom:3,maxNativeZoom:7,maxZoom:12,keepBuffer:2}).addTo(map)}
   if(TI.usgs){new Atlas({dir:"tiles/usgs_",av:AU,minZoom:8,maxNativeZoom:11,maxZoom:12,keepBuffer:2}).addTo(map)}
   var CITIES=[["Salt Lake City",40.76,-111.89,5],["Provo",40.23,-111.66,6],["Ogden",41.22,-111.97,7],["Park City",40.65,-111.50,7],["Jackson",43.48,-110.76,6],["Driggs",43.72,-111.11,7],["Idaho Falls",43.49,-112.03,6],["Boise",43.62,-116.20,5],["Denver",39.74,-104.99,5],["Vail",39.64,-106.37,7],["Reno",39.53,-119.81,5],["Truckee",39.33,-120.18,7],["Sacramento",38.58,-121.49,5],["Mammoth Lakes",37.65,-118.97,7],["Las Vegas",36.17,-115.14,5],["San Francisco",37.77,-122.42,5],["Los Angeles",34.05,-118.24,5],["Phoenix",33.45,-112.07,5],["Albuquerque",35.08,-106.65,5],["Portland",45.52,-122.68,5],["Seattle",47.61,-122.33,5],["Bozeman",45.68,-111.04,6],["St. George",37.10,-113.58,6],["Grand Junction",39.06,-108.55,6]];
@@ -928,7 +1084,16 @@ details.trip[open]>summary::before{content:"▾ "}
     if(ds.isH){var c=Math.floor(f/ds.per),a=ds.chunks[c];return a?{a:a,base:(f-c*ds.per)*ds.m.ny*ds.m.nx}:null}
     var a=layer=="snow"?ds.snow:ds.radar;return a?{a:a,base:f*ds.m.ny*ds.m.nx}:null}
   var OUT=[0,0,0,0];
-  function samp(ds,gv,layer,lat,lon){var m=ds.m,sx=(lon-m.west)/ds.dlon,sy=(m.north-lat)/ds.dlat;if(sx<-.5||sy<-.5||sx>m.nx-.5||sy>m.ny-.5)return null;
+  // cubic B-spline sampling for the coarse GFS grid: smooth shapes instead of 25 km squares
+  function bw(t){var t2=t*t,t3=t2*t;return[(1-3*t+3*t2-t3)/6,(4-6*t2+3*t3)/6,(1+3*t+3*t2-3*t3)/6,t3/6]}
+  function sampC(ds,gv,layer,lat,lon){var m=ds.m,sx=(lon-m.west)/ds.dlon,sy=(m.north-lat)/ds.dlat;if(sx<-.5||sy<-.5||sx>m.nx-.5||sy>m.ny-.5)return null;
+    var nx=m.nx,ny=m.ny,ix=Math.floor(sx),iy=Math.floor(sy),wx=bw(sx-ix),wy=bw(sy-iy),D=gv.a,b=gv.base,acc=0,kw={1:0,2:0,3:0};
+    for(var j=0;j<4;j++){var yy=Math.max(0,Math.min(ny-1,iy-1+j));for(var i=0;i<4;i++){var xx=Math.max(0,Math.min(nx-1,ix-1+i)),v=D[b+yy*nx+xx],w=wx[i]*wy[j];
+      if(layer=="radar"){var l=v&15;acc+=w*l;if(l)kw[(v>>4)||1]+=w*l}else acc+=w*v}}
+    if(layer!="radar")return Math.round(acc);
+    if(acc<0.6)return 0;var k=kw[2]>=kw[1]&&kw[2]>=kw[3]?2:kw[3]>kw[1]?3:1,pk=PAL[k],li=Math.max(0,Math.min(7,acc-1)),i0=Math.floor(li),i1=Math.min(7,i0+1),f=li-i0;
+    OUT[0]=pk[i0][0]*(1-f)+pk[i1][0]*f;OUT[1]=pk[i0][1]*(1-f)+pk[i1][1]*f;OUT[2]=pk[i0][2]*(1-f)+pk[i1][2]*f;OUT[3]=Math.min(235,Math.max(0,(acc-0.6)*240));return -1}
+  function samp(ds,gv,layer,lat,lon){if(!ds.isH)return sampC(ds,gv,layer,lat,lon);var m=ds.m,sx=(lon-m.west)/ds.dlon,sy=(m.north-lat)/ds.dlat;if(sx<-.5||sy<-.5||sx>m.nx-.5||sy>m.ny-.5)return null;
     var nx=m.nx,ny=m.ny,x0=Math.max(0,Math.min(nx-1,Math.floor(sx))),x1=Math.min(nx-1,x0+1),y0=Math.max(0,Math.min(ny-1,Math.floor(sy))),y1=Math.min(ny-1,y0+1),fx=Math.max(0,Math.min(1,sx-x0)),fy=Math.max(0,Math.min(1,sy-y0)),D=gv.a,b=gv.base;
     var a00=D[b+y0*nx+x0],a01=D[b+y0*nx+x1],a10=D[b+y1*nx+x0],a11=D[b+y1*nx+x1],w00=(1-fx)*(1-fy),w01=fx*(1-fy),w10=(1-fx)*fy,w11=fx*fy;
     if(ds.isH&&(a00==255||a01==255||a10==255||a11==255))return null;
@@ -999,6 +1164,15 @@ details.trip[open]>summary::before{content:"▾ "}
         Promise.all(nj).then(function(){NOK=NDs.every(function(d){return Object.keys(d.m.layers).every(function(k){var A=d.L[k];return A.length==d.m.layers[k].length&&A.every(Boolean)})});show(frame)})}})}
 })();
 </script>
+<div id="lb" role="dialog" aria-label="Photo"><img alt=""><div></div></div>
+<script>
+(function(){var lb=document.getElementById("lb"),li=lb.querySelector("img"),lc=lb.querySelector("div");
+document.addEventListener("click",function(e){var t=e.target;if(t.tagName==="IMG"&&t.hasAttribute("data-cap")){li.src=t.src;lc.textContent=t.getAttribute("data-cap");lb.classList.add("on")}else if(lb.classList.contains("on")&&lb.contains(t)){lb.classList.remove("on")}});
+document.addEventListener("keydown",function(e){if(e.key==="Escape")lb.classList.remove("on")});
+function ago(){var n=Date.now();document.querySelectorAll(".ago[data-t]").forEach(function(el){var t=Date.parse(el.getAttribute("data-t"));if(!t)return;var m=Math.round((n-t)/60000),s=m<1?"just now":m<60?m+" min ago":m<1440?Math.round(m/60)+" hr ago":Math.round(m/1440)+" days ago";
+  el.textContent=new Date(t).toLocaleString([],{weekday:"short",hour:"numeric",minute:"2-digit"})+" · "+s})}ago();setInterval(ago,60000)})();
+</script>
+
 </body></html>
 """
 

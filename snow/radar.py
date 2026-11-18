@@ -144,12 +144,16 @@ def build(out_dir, now=None, log=print):
             acc = acc + snow_in
         started = True
         rate = step / max(hrs, 1)
+        # GFS is a 25 km grid: smooth it so offshore and Canada/Mexico areas are not blocky
+        from scipy.ndimage import gaussian_filter
+        rate = gaussian_filter(rate, 0.85)
         lvl = np.zeros((ny, nx), "uint8")
         for i, b in enumerate(RATE_BINS):
             lvl[rate >= b] = i + 1
         kind = np.where(icefrac > 0.3, 3, np.where(snowfrac >= 0.7, 2, np.where(snowfrac > 0.3, 3, 1)))
         radar.append(np.where(lvl > 0, kind * 16 + lvl, 0).astype("uint8"))
-        snowacc.append(np.clip(np.round(acc * 2), 0, 255).astype("uint8"))
+        from scipy.ndimage import gaussian_filter as _gf
+        snowacc.append(np.clip(np.round(_gf(acc, 0.7) * 2), 0, 255).astype("uint8"))
         times.append(valid.isoformat())
     os.makedirs(out_dir, exist_ok=True)
     Image.fromarray(np.vstack(radar), "L").save(os.path.join(out_dir, "radar.png"), optimize=True)
