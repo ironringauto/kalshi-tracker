@@ -4,7 +4,8 @@ Usage: python3 bake_tiles.py OUTDIR [--count]"""
 import math, os, sys, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-CONUS = (24.0, 50.5, -125.5, -66.0)
+CONUS = (18.0, 56.0, -142.0, -56.0)   # z3-6
+CONUS7 = (21.0, 53.0, -134.0, -62.0)  # z7
 REGIONS = {  # (south, north, west, east)
     "wasatch": (39.85, 41.65, -112.55, -110.85),
     "tahoe": (38.55, 39.60, -120.75, -119.65),
@@ -32,7 +33,7 @@ def tiles(box, z):
 
 
 def plan(region_max=11):
-    jobs = [("bm", BM, t) for z in range(3, 8) for t in tiles(CONUS, z)]
+    jobs = [("bm", BM, t) for z in range(3, 7) for t in tiles(CONUS, z)] + [("bm", BM, t) for t in tiles(CONUS7, 7)]
     seen = set(tiles(WEST, 8))
     jobs += [("usgs", USGS, t) for t in sorted(seen)]
     for box in REGIONS.values():

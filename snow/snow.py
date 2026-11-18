@@ -701,7 +701,7 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
 </div>
 
 <div class="foot">
-<p><b>How to read it.</b> The map's weather colors come from NOAA models: for the next 48 hours across the West, the HRRR model (3 km grid, hourly), the same model behind most weather apps' future radar; beyond that, and for the rest of the country, the GFS model (about 25 km grid), every 3 hours for 5 days and every 6 hours after that. Snow totals on the map use GFS throughout so they stay consistent over 10 days. "Future radar" shows what the model expects to be falling at each time; "Snow total" shows snow piled up from now to that time. The model's grid smooths mountain peaks, so its mountain totals usually run lower than the resort numbers. The resort numbers on the map, the charts, and the cards use the finer blended forecast: the official NWS snowfall forecast averaged with the median of the independent weather models. Faded, striped bars and shaded chart areas are past the NWS range (about 7 days) and come from models alone. Sources this run: {{models}}. Snow on the ground comes from the nearest SNOTEL station (measured, not resort-reported). The live radar can't run inside this page, so that button opens it in a new tab.</p>
+<p><b>How to read it.</b> The map's weather colors come from NOAA models: for the next 48 hours across the US, the HRRR model (3 km grid; hourly for a day, then every 2 hours), the same model behind most weather apps' future radar; beyond that, and over the ocean, Canada and Mexico, the GFS model (about 25 km grid), every 3 hours for 5 days and every 6 hours after that. Snow totals on the map use GFS throughout so they stay consistent over 10 days. "Future radar" shows what the model expects to be falling at each time; "Snow total" shows snow piled up from now to that time. The model's grid smooths mountain peaks, so its mountain totals usually run lower than the resort numbers. The resort numbers on the map, the charts, and the cards use the finer blended forecast: the official NWS snowfall forecast averaged with the median of the independent weather models. Faded, striped bars and shaded chart areas are past the NWS range (about 7 days) and come from models alone. Sources this run: {{models}}. Snow on the ground comes from the nearest SNOTEL station (measured, not resort-reported). The live radar can't run inside this page, so that button opens it in a new tab.</p>
 {{warn}}
 </div>
 </div>
@@ -716,7 +716,7 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
   var M=JSON.parse(document.getElementById("mdata").textContent),R=M.radar;
   var $=function(id){return document.getElementById(id)};
   if(typeof L==="undefined"){$("tmain").textContent="Map could not load";return}
-  var map=L.map("map",{attributionControl:false,zoomSnap:0.5,minZoom:3,maxZoom:12,scrollWheelZoom:false,maxBounds:[[10,-150],[60,-50]]});map.on("click",function(){map.scrollWheelZoom.enable()});map.on("mouseout",function(){map.scrollWheelZoom.disable()});
+  var map=L.map("map",{attributionControl:false,zoomSnap:0.5,maxZoom:12,scrollWheelZoom:false,minZoom:4,maxBounds:[[17,-141],[56,-57]],maxBoundsViscosity:1});map.on("click",function(){map.scrollWheelZoom.enable()});map.on("mouseout",function(){map.scrollWheelZoom.disable()});
   map.createPane("land").style.zIndex=200;map.createPane("wx").style.zIndex=300;
   var lp=map.createPane("lines");lp.style.zIndex=350;lp.style.pointerEvents="none";
   var VIEWS={"West":[[35.6,-124.4],[45.6,-104.2]],"Utah":[[36.9,-114.2],[42.1,-108.9]],"Wasatch":[[40.25,-112.05],[41.3,-111.35]],"Tahoe":[[38.4,-120.9],[39.7,-119.5]],"Mammoth":[[37.2,-119.5],[38.0,-118.5]],"Tetons":[[43.2,-111.5],[44.2,-110.3]],"Colorado":[[38.9,-107.4],[40.7,-105.2]],"USA":[[24.5,-125],[49.5,-66.5]]};
@@ -775,13 +775,14 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
   // ---- model grids ----
   function sprite(src){return new Promise(function(res){var im=new Image();im.onload=function(){try{var c=document.createElement("canvas");c.width=im.naturalWidth;c.height=im.naturalHeight;var x=c.getContext("2d",{willReadFrequently:true});x.drawImage(im,0,0);var d=x.getImageData(0,0,c.width,c.height).data,o=new Uint8Array(d.length/4);for(var i=0;i<o.length;i++)o[i]=d[i*4];res(o)}catch(e){res(null)}};im.onerror=function(){res(null)};im.src=src})}
   function meta(m){return{m:m,dlat:(m.north-m.south)/(m.ny-1),dlon:(m.east-m.west)/(m.nx-1),chunks:[],per:m.chunks?m.chunks[0].n:1e9}}
-  var G=R?meta(R):null,HD=H?meta(H):null;
-  function getv(ds,f,layer){if(ds===HD){var c=Math.floor(f/ds.per),a=ds.chunks[c];return a?{a:a,base:(f-c*ds.per)*ds.m.ny*ds.m.nx}:null}
+  var G=R?meta(R):null,HDs=H&&H.parts?H.parts.map(function(p){var d=meta(p);d.isH=true;return d}):[],HD=HDs.length?HDs[0]:null;
+  function getv(ds,f,layer){if(ds.isH){var c=Math.floor(f/ds.per),a=ds.chunks[c];return a?{a:a,base:(f-c*ds.per)*ds.m.ny*ds.m.nx}:null}
     var a=layer=="snow"?ds.snow:ds.radar;return a?{a:a,base:f*ds.m.ny*ds.m.nx}:null}
   var OUT=[0,0,0,0];
   function samp(ds,gv,layer,lat,lon){var m=ds.m,sx=(lon-m.west)/ds.dlon,sy=(m.north-lat)/ds.dlat;if(sx<-.5||sy<-.5||sx>m.nx-.5||sy>m.ny-.5)return null;
     var nx=m.nx,ny=m.ny,x0=Math.max(0,Math.min(nx-1,Math.floor(sx))),x1=Math.min(nx-1,x0+1),y0=Math.max(0,Math.min(ny-1,Math.floor(sy))),y1=Math.min(ny-1,y0+1),fx=Math.max(0,Math.min(1,sx-x0)),fy=Math.max(0,Math.min(1,sy-y0)),D=gv.a,b=gv.base;
     var a00=D[b+y0*nx+x0],a01=D[b+y0*nx+x1],a10=D[b+y1*nx+x0],a11=D[b+y1*nx+x1],w00=(1-fx)*(1-fy),w01=fx*(1-fy),w10=(1-fx)*fy,w11=fx*fy;
+    if(ds.isH&&(a00==255||a01==255||a10==255||a11==255))return null;
     if(layer=="radar"){var l=(a00&15)*w00+(a01&15)*w01+(a10&15)*w10+(a11&15)*w11;if(l<0.5)return 0;
       var r=0,g=0,bb=0,ws=0,cs=[a00,a01,a10,a11],ww=[w00,w01,w10,w11];
       for(var q=0;q<4;q++){var v=cs[q];if(!v||!(v&15))continue;var pk=PAL[(v>>4)||1]||PAL[1],li=Math.max(0,Math.min(7,l-1)),i0=Math.floor(li),i1=Math.min(7,i0+1),f=li-i0,wq=ww[q]*(v&15);
@@ -795,11 +796,16 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
     var sz=map.getSize(),S2=sz.x<700?1.5:1.25,W=Math.ceil(sz.x/S2),Hh=Math.ceil(sz.y/S2);cv.width=W;cv.height=Hh;cv.style.width=sz.x+"px";cv.style.height=sz.y+"px";L.DomUtil.setPosition(cv,map.containerPointToLayerPoint([0,0]));
     var x=cv.getContext("2d"),img=x.createImageData(W,Hh),o=img.data,lonC=new Float64Array(W),latR=new Float64Array(Hh);
     for(var i=0;i<W;i++)lonC[i]=map.containerPointToLatLng([(i+.5)*S2,0]).lng;for(var j=0;j<Hh;j++)latR[j]=map.containerPointToLatLng([0,(j+.5)*S2]).lat;
-    var useH=layer=="radar"&&fr.h>=0&&HD&&HD.chunks.length,gvH=useH?getv(HD,fr.h,"radar"):null,gvG=fr.g>=0?getv(G,fr.g,layer):null,P=layer=="snow"?PS:PR,hm=HD?HD.m:null;
-    for(var j=0;j<Hh;j++){var lat=latR[j],inLat=hm&&lat<=hm.north&&lat>=hm.south;
-      for(var i=0;i<W;i++){var lon=lonC[i],v=null,d=(j*W+i)*4;
-        if(gvH&&inLat&&lon<=hm.east){v=lon>=hm.west?samp(HD,gvH,"radar",lat,lon):0}else if(gvG){v=samp(G,gvG,layer,lat,lon)}
-        if(!v){o[d+3]=0;continue}var p=v<0?OUT:P[v];o[d]=p[0];o[d+1]=p[1];o[d+2]=p[2];o[d+3]=p[3]}}
+    var useH=layer=="radar"&&fr.h>=0&&HD&&HD.chunks.length,gvHs=useH?HDs.map(function(d){return getv(d,fr.h,"radar")}):null,gvG=fr.g>=0?getv(G,fr.g,layer):null,P=layer=="snow"?PS:PR;
+    function col(v,P2){if(!v)return null;var c=v<0?OUT:P2[v];return[c[0],c[1],c[2],c[3]]}
+    for(var j=0;j<Hh;j++){var lat=latR[j];
+      for(var i=0;i<W;i++){var lon=lonC[i],d=(j*W+i)*4,hc=null,hit=false,hw=1;
+        if(useH){for(var q=0;q<HDs.length;q++){var hd=HDs[q],hm=hd.m;if(gvHs[q]&&lat<=hm.north&&lat>=hm.south&&lon>=hm.west&&lon<=hm.east){var hv=samp(hd,gvHs[q],"radar",lat,lon);
+          if(hv!==null){hit=true;hc=col(hv,PR);if(hd.edge){var ei=Math.round((hm.north-lat)/hd.dlat)*hm.nx+Math.round((lon-hm.west)/hd.dlon);hw=(hd.edge[ei]||0)/255}}break}}}
+        var c=hc;
+        if(!hit||hw<0.999){var gc=gvG?col(samp(G,gvG,layer,lat,lon),P):null;
+          if(!hit)c=gc;else{var a1=hc?hc[3]*hw:0,a2=gc?gc[3]*(1-hw):0,at=a1+a2;c=at>0?[((hc?hc[0]*a1:0)+(gc?gc[0]*a2:0))/at,((hc?hc[1]*a1:0)+(gc?gc[1]*a2:0))/at,((hc?hc[2]*a1:0)+(gc?gc[2]*a2:0))/at,at]:null}}
+        if(!c){o[d+3]=0;continue}o[d]=c[0];o[d+1]=c[1];o[d+2]=c[2];o[d+3]=c[3]}}
     x.putImageData(img,0,0)}
   map.on("move resize",redraw);map.on("zoomstart",function(){cv.style.display="none"});map.on("zoomend",redraw);
   function fmt(t){return t.toLocaleString([], {weekday:"short",hour:"numeric"})}
@@ -809,7 +815,7 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
     else{g.innerHTML="<span>Snow piled up by the time shown:</span>"+SB.map(function(b,i){return'<span><i style="display:inline-block;width:12px;height:10px;background:'+SC[i]+';margin-right:3px"></i>'+b+'"</span>'}).join("")}}
   function show(f){frame=f;var fr=F[f];if(!fr)return;var t=fr.t;
     $("tmain").textContent=fmt(t);
-    var src=layer=="radar"&&fr.h>=0&&HD&&HD.chunks.length?"HRRR 3 km model (West) + GFS":G?"GFS model":"blended resort forecast";
+    var src=layer=="radar"&&fr.h>=0&&HD&&HD.chunks.length?"HRRR 3 km model":G?"GFS model":"blended resort forecast";
     $("tsub").textContent=rel(t)+" · "+src;
     draw();
     labels()}
@@ -824,13 +830,13 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
     document.querySelectorAll("#seg button").forEach(function(x){x.classList.toggle("on",x===b)});legend();show(frame)}});
   map.on("click",function(e){if(!G||!G.radar)return;var fr=F[frame],la=e.latlng.lat,lo=e.latlng.lng,kinds={1:"Rain",2:"Snow",3:"Mixed or icy"},ints=["","very light","very light","light","light","moderate","moderate","heavy","very heavy"],vr=0,srcn="GFS model, ~25 km grid";
     function pick(ds,f,layer){var i=Math.round((lo-ds.m.west)/ds.dlon),j=Math.round((ds.m.north-la)/ds.dlat);if(i<0||j<0||i>=ds.m.nx||j>=ds.m.ny)return null;var gv=getv(ds,f,layer);return gv?gv.a[gv.base+j*ds.m.nx+i]:null}
-    if(fr.h>=0&&HD&&HD.chunks.length){var hv=pick(HD,fr.h,"radar");if(hv!==null){vr=hv;srcn="HRRR model, ~3 km grid"}else vr=pick(G,fr.g,"radar")||0}else vr=pick(G,fr.g,"radar")||0;
+    vr=null;if(fr.h>=0&&HD&&HD.chunks.length){for(var q=0;q<HDs.length;q++){var hv=pick(HDs[q],fr.h,"radar");if(hv!==null&&hv!==255){vr=hv;srcn="HRRR model, ~3 km";break}}}if(vr===null)vr=pick(G,fr.g,"radar")||0;
     var vs=fr.g>=0?(pick(G,fr.g,"snow")||0)/2:0,k=vr>>4,l=vr&15,nowtxt=vr&&l?kinds[k]+", "+ints[Math.min(l,8)]:"Nothing falling";
     L.popup().setLatLng(e.latlng).setContent("<b>"+fmt(fr.t)+"</b><br>"+nowtxt+'<br><span style="color:#888">'+srcn+"</span><br>Snow piled up since now (GFS): "+(vs<0.5?"under 0.5":Math.round(vs*2)/2)+'"').openOn(map)});
   if(!G){$("seg").style.display="none";$("legend").textContent="Model map unavailable tonight; resort numbers still update."}
   legend();show(start);
-  if(G){var jobs=[sprite("radar.png"),sprite("snowacc.png")];if(HD)H.chunks.forEach(function(c){jobs.push(sprite(c.file))});
-    Promise.all(jobs).then(function(a){G.radar=a[0];G.snow=a[1];if(HD)HD.chunks=a.slice(2).filter(function(x){return x});if(!G.radar){$("legend").textContent="Model map could not load."}show(frame)})}
+  if(G){var jobs=[sprite("radar.png"),sprite("snowacc.png")];HDs.forEach(function(d){d.m.chunks.forEach(function(c){jobs.push(sprite(c.file))})});HDs.forEach(function(d){if(d.m.edge)sprite(d.m.edge).then(function(e){d.edge=e;redraw()})});
+    Promise.all(jobs).then(function(a){G.radar=a[0];G.snow=a[1];var pos=2;HDs.forEach(function(d){d.chunks=a.slice(pos,pos+d.m.chunks.length);pos+=d.m.chunks.length;if(d.chunks.some(function(x){return!x}))d.chunks=[]});if(!G.radar){$("legend").textContent="Model map could not load."}show(frame)})}
 })();
 </script>
 </body></html>

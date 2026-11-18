@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 UA = {"User-Agent": "RyanSnowTracker/1.0 (personal snow alerts)"}
 BASE = "https://nomads.ncep.noaa.gov"
-BOX = dict(toplat=50, bottomlat=24, leftlon=-125, rightlon=-66)
+BOX = dict(toplat=56, bottomlat=18, leftlon=-142, rightlon=-56)
 HOURS = list(range(3, 121, 3)) + list(range(126, 241, 6))
 RATE_BINS = [0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8]  # mm per hour
 
@@ -161,10 +161,11 @@ def build(out_dir, now=None, log=print):
             "north": n, "south": s_, "west": w, "east": e}
 
 
-# ---------- HRRR: 3 km, hourly, next 48 hours, western US (future radar only) ----------
-HR_BOX = dict(toplat=49.5, bottomlat=31, leftlon=-125, rightlon=-102)
-HR_RES = 0.04          # output grid, degrees (~4 km)
-HR_CHUNK = 12          # frames per sprite file (keeps each image small enough for iPhone)
+# ---------- HRRR: 3 km model, next 48 hours, whole CONUS (future radar only) ----------
+# Regridded to two lat/lon grids: sharp in the West, coarser in the East. 255 = outside HRRR coverage.
+HR_BOX = dict(toplat=53.5, bottomlat=20.5, leftlon=-135, rightlon=-60)
+HR_PARTS = [("W", 53.0, 21.0, -135.0, -100.0, 0.04, 8), ("E", 53.0, 21.0, -100.0, -60.0, 0.08, 12)]
+HR_HOURS = list(range(1, 25)) + list(range(26, 49, 2))
 
 
 def latest_hrrr(now):
@@ -186,7 +187,7 @@ def fetch_hrrr(run, fh):
          "&var_REFC=on&var_CSNOW=on&var_CRAIN=on&var_CFRZR=on&var_CICEP=on&var_TMP=on"
          "&lev_entire_atmosphere=on&lev_surface=on&lev_2_m_above_ground=on&subregion="
          + "".join(f"&{k}={v}" for k, v in HR_BOX.items()))
-    return http(f"{BASE}/cgi-bin/filter_hrrr_2d.pl?{q}", timeout=150)
+    return http(f"{BASE}/cgi-bin/filter_hrrr_2d.pl?{q}", timeout=180)
 
 
 def build_hrrr(out_dir, now=None, log=print):
@@ -200,17 +201,18 @@ def build_hrrr(out_dir, now=None, log=print):
         from scipy.spatial import cKDTree
     now = now or datetime.now(timezone.utc)
     run = latest_hrrr(now)
-    hours = [fh for fh in range(1, 49) if run + timedelta(hours=fh) >= now - timedelta(hours=1)]
-    lats_o = np.arange(HR_BOX["toplat"], HR_BOX["bottomlat"] - 1e-9, -HR_RES)
-    lons_o = np.arange(HR_BOX["leftlon"], HR_BOX["rightlon"] + 1e-9, HR_RES)
-    ny, nx = len(lats_o), len(lons_o)
+    hours = [fh for fh in HR_HOURS if run + timedelta(hours=fh) >= now - timedelta(hours=1)]
     k = math.cos(math.radians(40))
-    idx = None
-    frames, times = [], []
+    parts = []
+    for name, n, s_, w, e, res, chunk in HR_PARTS:
+        la = np.arange(n, s_ - 1e-9, -res)
+        lo = np.arange(w, e + 1e-9, res)
+        parts.append({"name": name, "lat": la, "lon": lo, "res": res, "chunk": chunk, "frames": [], "idx": None, "far": None})
+    times = []
 
     def one(fh):
         return fh, fetch_hrrr(run, fh)
-    with ThreadPoolExecutor(4) as ex:
+    with ThreadPoolExecutor(6) as ex:
         results = list(ex.map(one, hours))
     for fh, blob in results:
         path = f"/tmp/hrrr_{os.getpid()}_{fh}.grb2"
@@ -226,32 +228,47 @@ def build_hrrr(out_dir, now=None, log=print):
                     v[sn] = m.values
                 elif sn == "2t":
                     v["t2"] = m.values - 273.15
-                if idx is None:
-                    la, lo = m.latlons()
-                    tree = cKDTree(np.column_stack([la.ravel(), lo.ravel() * k]))
-                    gy, gx = np.meshgrid(lats_o, lons_o, indexing="ij")
-                    dist, idx = tree.query(np.column_stack([gy.ravel(), gx.ravel() * k]))
-                    far = dist > 0.06
+                if parts[0]["idx"] is None:
+                    sla, slo = m.latlons()
+                    tree = cKDTree(np.column_stack([sla.ravel(), slo.ravel() * k]))
+                    for p in parts:
+                        gy, gx = np.meshgrid(p["lat"], p["lon"], indexing="ij")
+                        dist, p["idx"] = tree.query(np.column_stack([gy.ravel(), gx.ravel() * k]))
+                        p["far"] = dist > 0.05
         finally:
             os.remove(path)
         if "refc" not in v:
             log(f"HRRR f{fh:02d}: no reflectivity")
             continue
-        g = lambda name: np.asarray(v.get(name, np.zeros_like(v["refc"]))).ravel()[idx]
-        dbz, t2 = g("refc"), g("t2")
-        sn, rn, ice = g("csnow"), g("crain"), g("cfrzr") + g("cicep")
-        lvl = np.clip(((dbz - 12) // 5 + 1), 0, 8).astype("uint8")
-        lvl[dbz < 12] = 0
-        kind = np.where(ice > 0.5, 3, np.where(sn > 0.5, np.where(rn > 0.5, 3, 2), np.where(rn > 0.5, 1, np.where(t2 <= 0.5, 2, 1))))
-        b = np.where(lvl > 0, kind * 16 + lvl, 0).astype("uint8")
-        b[far] = 0
-        frames.append(b.reshape(ny, nx))
+        for p in parts:
+            g = lambda nm: np.asarray(v.get(nm, np.zeros_like(v["refc"]))).ravel()[p["idx"]]
+            dbz, t2 = g("refc"), g("t2")
+            sn, rn, ice = g("csnow"), g("crain"), g("cfrzr") + g("cicep")
+            lvl = np.clip(((dbz - 12) // 5 + 1), 0, 8).astype("uint8")
+            lvl[dbz < 12] = 0
+            kind = np.where(ice > 0.5, 3, np.where(sn > 0.5, np.where(rn > 0.5, 3, 2), np.where(rn > 0.5, 1, np.where(t2 <= 0.5, 2, 1))))
+            b = np.where(lvl > 0, kind * 16 + lvl, 0).astype("uint8")
+            b[p["far"]] = 255
+            p["frames"].append(b.reshape(len(p["lat"]), len(p["lon"])))
         times.append((run + timedelta(hours=fh)).isoformat())
     os.makedirs(out_dir, exist_ok=True)
-    files = []
-    for c in range(0, len(frames), HR_CHUNK):
-        name = f"hrrr{c // HR_CHUNK}.png"
-        Image.fromarray(np.vstack(frames[c:c + HR_CHUNK]), "L").save(os.path.join(out_dir, name), optimize=True)
-        files.append({"file": name, "n": len(frames[c:c + HR_CHUNK])})
-    return {"run": run.isoformat(), "times": times, "nx": nx, "ny": ny, "north": float(lats_o[0]),
-            "south": float(lats_o[-1]), "west": float(lons_o[0]), "east": float(lons_o[-1]), "chunks": files}
+    meta = []
+    from scipy.ndimage import distance_transform_edt
+    for p in parts:
+        far2 = p["far"].reshape(len(p["lat"]), len(p["lon"]))
+        # treat the outer box border as "no HRRR" too (but not the seam shared with the other part)
+        padded = np.pad(far2, 1, constant_values=True)
+        if p["name"] == "W":
+            padded[:, -1] = padded[:, -2]
+        else:
+            padded[:, 0] = padded[:, 1]
+        edge = np.clip(distance_transform_edt(~padded)[1:-1, 1:-1] / (40.0 if p["name"] == "W" else 20.0), 0, 1)
+        Image.fromarray((edge * 255).astype("uint8"), "L").save(os.path.join(out_dir, f"hrrr{p['name']}_edge.png"), optimize=True)
+        files = []
+        for c in range(0, len(p["frames"]), p["chunk"]):
+            fname = f"hrrr{p['name']}{c // p['chunk']}.png"
+            Image.fromarray(np.vstack(p["frames"][c:c + p["chunk"]]), "L").save(os.path.join(out_dir, fname), optimize=True)
+            files.append({"file": fname, "n": len(p["frames"][c:c + p["chunk"]])})
+        meta.append({"name": p["name"], "nx": len(p["lon"]), "ny": len(p["lat"]), "north": float(p["lat"][0]), "south": float(p["lat"][-1]),
+                     "west": float(p["lon"][0]), "east": float(p["lon"][-1]), "chunks": files, "edge": f"hrrr{p['name']}_edge.png"})
+    return {"run": run.isoformat(), "times": times, "parts": meta}
