@@ -272,3 +272,145 @@ def build_hrrr(out_dir, now=None, log=print):
         meta.append({"name": p["name"], "nx": len(p["lon"]), "ny": len(p["lat"]), "north": float(p["lat"][0]), "south": float(p["lat"][-1]),
                      "west": float(p["lon"][0]), "east": float(p["lon"][-1]), "chunks": files, "edge": f"hrrr{p['name']}_edge.png"})
     return {"run": run.isoformat(), "times": times, "parts": meta}
+
+
+# ---------- NBM (National Blend of Models): 2.5 km, 6-hourly, ~10 days, CONUS ----------
+# Precip type comes from the ratio of NBM snowfall to liquid. Two layers: future radar (6-hr rate) and snow piled up.
+NB_PARTS = [("W", 53.0, 21.0, -135.0, -100.0, 0.06, 10), ("E", 53.0, 21.0, -100.0, -60.0, 0.12, 20)]
+
+
+def latest_nbm(now):
+    t = now.replace(minute=0, second=0, microsecond=0)
+    t -= timedelta(hours=t.hour % 6)
+    for _ in range(4):
+        d, h = t.strftime("%Y%m%d"), t.strftime("%H")
+        try:
+            http(f"{BASE}/pub/data/nccf/com/blend/prod/blend.{d}/{h}/core/blend.t{h}z.core.f240.co.grib2.idx", tries=1, timeout=30)
+            return t
+        except Exception:
+            t -= timedelta(hours=6)
+    raise RuntimeError("no complete NBM run found")
+
+
+def ranged(url, start, end):
+    req = urllib.request.Request(url, headers=dict(UA, Range=f"bytes={start}-{end}"))
+    for i in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return r.read()
+        except Exception as e:
+            err = e
+            time.sleep(3 * (i + 1))
+    raise RuntimeError(f"{url} range -> {err}")
+
+
+def fetch_nbm(run, fh):
+    d, h = run.strftime("%Y%m%d"), run.strftime("%H")
+    url = f"{BASE}/pub/data/nccf/com/blend/prod/blend.{d}/{h}/core/blend.t{h}z.core.f{fh:03d}.co.grib2"
+    lines = http(url + ".idx").decode().splitlines()
+    want = {f"APCP:surface:{fh - 6}-{fh} hour acc fcst", f"ASNOW:surface:{fh - 6}-{fh} hour acc fcst"}
+    out = b""
+    for i, ln in enumerate(lines):
+        p = ln.split(":")
+        if len(p) == 7 and p[6] == "" and ":".join(p[3:6]) in want:
+            start = int(p[1])
+            end = int(lines[i + 1].split(":")[1]) - 1 if i + 1 < len(lines) else ""
+            out += ranged(url, start, end)
+    return out
+
+
+def build_nbm(out_dir, now=None, log=print):
+    ensure_libs()
+    import numpy as np, pygrib
+    from PIL import Image
+    from scipy.spatial import cKDTree
+    from scipy.ndimage import distance_transform_edt
+    now = now or datetime.now(timezone.utc)
+    run = latest_nbm(now)
+    hours = [fh for fh in range(6, 241, 6) if run + timedelta(hours=fh) > now]
+    k = math.cos(math.radians(40))
+    parts = []
+    for name, n, s_, w, e, res, chunk in NB_PARTS:
+        parts.append({"name": name, "lat": np.arange(n, s_ - 1e-9, -res), "lon": np.arange(w, e + 1e-9, res),
+                      "chunk": chunk, "radar": [], "snow": [], "idx": None, "far": None})
+
+    def one(fh):
+        try:
+            return fh, fetch_nbm(run, fh)
+        except Exception as e:
+            log(f"NBM f{fh:03d}: {e}")
+            return fh, b""
+    with ThreadPoolExecutor(6) as ex:
+        results = list(ex.map(one, hours))
+    acc = None
+    times = []
+    for fh, blob in results:
+        if not blob:
+            continue
+        path = f"/tmp/nbm_{os.getpid()}_{fh}.grb2"
+        with open(path, "wb") as f:
+            f.write(blob)
+        v = {}
+        try:
+            for m in pygrib.open(path):
+                key = "qpf" if m.shortName in ("tp", "apcp") or "precip" in m.name.lower() else "snow"
+                v[key] = np.asarray(m.values.filled(0) if hasattr(m.values, "filled") else m.values, dtype="float32")
+                if parts[0]["idx"] is None:
+                    sla, slo = m.latlons()
+                    tree = cKDTree(np.column_stack([sla.ravel(), slo.ravel() * k]))
+                    for p in parts:
+                        gy, gx = np.meshgrid(p["lat"], p["lon"], indexing="ij")
+                        dist, p["idx"] = tree.query(np.column_stack([gy.ravel(), gx.ravel() * k]))
+                        p["far"] = dist > 0.04
+        finally:
+            os.remove(path)
+        if "qpf" not in v or "snow" not in v:
+            log(f"NBM f{fh:03d}: missing fields")
+            continue
+        for p in parts:
+            q = v["qpf"].ravel()[p["idx"]]
+            sn_in = v["snow"].ravel()[p["idx"]] * 39.37
+            if "cum" not in p:
+                p["cum"] = np.zeros_like(q)
+            p["cum"] = p["cum"] + np.clip(sn_in, 0, None)
+            rate = q / 6.0
+            lvl = np.zeros(q.shape, "uint8")
+            for i, b in enumerate(RATE_BINS):
+                lvl[rate >= b] = i + 1
+            ratio = np.where(q > 0.05, (sn_in * 25.4) / np.maximum(q, 0.05), 0)
+            kind = np.where(ratio >= 6, 2, np.where(ratio >= 1.5, 3, 1))
+            rb = np.where(lvl > 0, kind * 16 + lvl, 0).astype("uint8")
+            sb = np.clip(np.round(p["cum"] * 2), 0, 254).astype("uint8")
+            rb[p["far"]] = 255
+            sb[p["far"]] = 255
+            shp = (len(p["lat"]), len(p["lon"]))
+            p["radar"].append(rb.reshape(shp))
+            p["snow"].append(sb.reshape(shp))
+        times.append((run + timedelta(hours=fh)).isoformat())
+    if not times:
+        raise RuntimeError("no NBM frames")
+    os.makedirs(out_dir, exist_ok=True)
+    meta = []
+    for p in parts:
+        far2 = p["far"].reshape(len(p["lat"]), len(p["lon"]))
+        padded = np.pad(far2, 1, constant_values=True)
+        if p["name"] == "W":
+            padded[:, -1] = padded[:, -2]
+        else:
+            padded[:, 0] = padded[:, 1]
+        edge = np.clip(distance_transform_edt(~padded)[1:-1, 1:-1] / (25.0 if p["name"] == "W" else 12.0), 0, 1)
+        ename = f"nbm{p['name']}_edge.png"
+        Image.fromarray((edge * 255).astype("uint8"), "L").save(os.path.join(out_dir, ename), optimize=True)
+        layers = {}
+        for layer in ("radar", "snow"):
+            files = []
+            fr = p[layer]
+            for c in range(0, len(fr), p["chunk"]):
+                fname = f"nbm{p['name']}_{layer}{c // p['chunk']}.png"
+                Image.fromarray(np.vstack(fr[c:c + p["chunk"]]), "L").save(os.path.join(out_dir, fname), optimize=True)
+                files.append({"file": fname, "n": len(fr[c:c + p["chunk"]])})
+            layers[layer] = files
+        meta.append({"name": p["name"], "nx": len(p["lon"]), "ny": len(p["lat"]), "north": float(p["lat"][0]),
+                     "south": float(p["lat"][-1]), "west": float(p["lon"][0]), "east": float(p["lon"][-1]),
+                     "layers": layers, "edge": ename})
+    return {"run": run.isoformat(), "times": times, "parts": meta}

@@ -262,6 +262,89 @@ def gather():
     return members, tzs, snotel, afd
 
 
+# ---------- trip panel: live cams, roads, avalanche (links; the page cannot embed live video) ----------
+UDOT_CC = ("UDOT canyon road status + cams", "https://cottonwoodcanyons.udot.utah.gov/road-information/")
+UDOT = ("UDOT Traffic map + cams", "https://udottraffic.utah.gov")
+UDOT_X = ("@UDOTcottonwoods on X", "https://x.com/UDOTcottonwoods")
+WYDOT = ("WYDOT road report + cams", "https://www.wyoroad.info/")
+IDAHO = ("Idaho 511 (ID-33, Driggs)", "https://511.idaho.gov/")
+COTRIP = ("COtrip roads + cams", "https://www.cotrip.org/")
+QUICKMAP = ("Caltrans QuickMap + cams", "https://quickmap.dot.ca.gov/")
+NV511 = ("Nevada 511 (Reno side)", "https://www.nvroads.com/")
+def _xs(q):
+    return (f"X live posts: {q}", "https://x.com/search?q=" + urllib.parse.quote(f'"{q}"') + "&f=live")
+def _ct(n):
+    return (f"Caltrans chain controls, Hwy {n}", f"https://roads.dot.ca.gov/roadscell.php?roadnumber={n}")
+UAC_SL = ("Utah Avalanche Center (Salt Lake)", "https://utahavalanchecenter.org/forecast/salt-lake")
+UAC_OG = ("Utah Avalanche Center (Ogden)", "https://utahavalanchecenter.org/forecast/ogden")
+BTAC = ("Bridger-Teton Avalanche Center", "https://bridgertetonavalanchecenter.org/")
+CAIC = ("Colorado Avalanche Info Center", "https://avalanche.state.co.us/")
+SAC = ("Sierra Avalanche Center", "https://www.sierraavalanchecenter.org/")
+ESAC = ("Eastern Sierra Avalanche Center", "https://www.esavalanche.org/")
+OTS = "https://www.onthesnow.com/"
+TRIP = {
+    "snowbird": ("Little Cottonwood (SR-210)", "https://www.snowbird.com/the-mountain/webcams/",
+                 [UDOT_CC, UDOT_X, _xs("Little Cottonwood"), UDOT], [UAC_SL]),
+    "brighton": ("Big Cottonwood (SR-190)", "https://www.brightonresort.com/conditions",
+                 [UDOT_CC, UDOT_X, _xs("Big Cottonwood"), UDOT], [UAC_SL]),
+    "solitude": ("Big Cottonwood (SR-190)", "https://www.solitudemountain.com/mountain-and-village/webcams",
+                 [UDOT_CC, UDOT_X, _xs("Big Cottonwood"), UDOT], [UAC_SL]),
+    "snowbasin": ("I-84 + Trappers Loop (SR-167)", "https://www.snowbasin.com/the-mountain/web-cams",
+                  [UDOT, _xs("Trappers Loop"), _xs("I-84 Ogden")], [UAC_OG]),
+    "targhee": ("Teton Pass (WY-22) or ID-33 via Driggs", OTS + "wyoming/grand-targhee-resort/webcams",
+                [WYDOT, IDAHO, _xs("Teton Pass"), UDOT], [BTAC]),
+    "jackson": ("Teton Pass (WY-22) or US-89", OTS + "wyoming/jackson-hole/webcams",
+                [WYDOT, IDAHO, _xs("Teton Pass"), UDOT], [BTAC]),
+    "winterpark": ("I-70 + Berthoud Pass (US-40)", OTS + "colorado/winter-park-resort/webcams",
+                   [COTRIP, _xs("Berthoud Pass"), _xs("I-70")], [CAIC]),
+    "copper": ("I-70 (Eisenhower Tunnel, Vail Pass)", OTS + "colorado/copper-mountain-resort/webcams",
+               [COTRIP, _xs("Vail Pass"), _xs("I-70")], [CAIC]),
+    "abasin": ("I-70 + Loveland Pass (US-6)", OTS + "colorado/arapahoe-basin-ski-area/webcams",
+               [COTRIP, _xs("Loveland Pass"), _xs("I-70")], [CAIC]),
+    "steamboat": ("US-40 Rabbit Ears Pass", OTS + "colorado/steamboat/webcams",
+                  [COTRIP, _xs("Rabbit Ears Pass")], [CAIC]),
+    "eldora": ("Boulder Canyon (CO-119)", OTS + "denver/eldora-mountain-resort/webcams",
+               [COTRIP, _xs("Boulder Canyon")], [CAIC]),
+    "snowmass": ("I-70 Glenwood Canyon + CO-82", "https://www.aspensnowmass.com/our-mountains/mountain-cams",
+                 [COTRIP, _xs("Glenwood Canyon"), _xs("Highway 82")], [CAIC]),
+    "palisades": ("I-80 Donner Summit + SR-89", "https://www.palisadestahoe.com/mountain-information/webcams",
+                  [_ct(80), QUICKMAP, _xs("Donner Pass"), NV511], [SAC]),
+    "sugarbowl": ("I-80 Donner Summit", OTS + "california/sugar-bowl-resort/webcams",
+                  [_ct(80), QUICKMAP, _xs("Donner Pass"), NV511], [SAC]),
+    "sierra": ("US-50 Echo Summit", "https://sierraattahoe.com/live-cams/",
+               [_ct(50), QUICKMAP, _xs("Echo Summit")], [SAC]),
+    "mammoth": ("US-395 + SR-203", OTS + "california/mammoth-mountain-ski-area/webcams",
+                [_ct(395), QUICKMAP, _xs("Mammoth 395")], [ESAC]),
+}
+
+
+def fetch_nws_alerts(resorts):
+    """Active NWS watches/warnings/advisories at each resort, as of this run."""
+    def one(r):
+        lat, lon = POS[r["id"]]
+        d = get(f"https://api.weather.gov/alerts/active?point={lat:.4f},{lon:.4f}", tries=2)
+        out = []
+        for f in (d or {}).get("features", []):
+            p = f.get("properties", {})
+            if p.get("status") != "Actual" or p.get("messageType") == "Cancel":
+                continue
+            out.append({"event": p.get("event"), "ends": p.get("ends") or p.get("expires"),
+                        "url": f"https://forecast.weather.gov/MapClick.php?lat={lat:.4f}&lon={lon:.4f}"})
+        seen, uniq = set(), []
+        for a in out:
+            if a["event"] not in seen:
+                seen.add(a["event"]); uniq.append(a)
+        return uniq
+    with ThreadPoolExecutor(6) as ex:
+        futs = {r["id"]: ex.submit(one, r) for r in resorts}
+        for r in resorts:
+            try:
+                r["nws_alerts"] = futs[r["id"]].result()
+            except Exception as e:
+                r["nws_alerts"] = []
+                log(f"NWS alerts {r['id']}: {e}")
+
+
 # ---------- analysis ----------
 def wsum(rows, s, e, key):
     xs = [r[key] for r in rows if s < r["t"] <= e]
@@ -497,7 +580,38 @@ def render_card(r, scale):
             f'<div class="sub">{esc(" · ".join(sub))}</div></div>'
             f'<div class="badge {color(best["score"])}" title="Best powder score in the window">{best["score"]}</div></div>'
             f'<div class="next">Tomorrow <b>{nxt["ovn"]:.0f}"</b> · next 5 days ~{r["total5"]:.0f}" · {best_txt}{lvl_txt}</div>'
-            f'<div class="bars" style="grid-template-columns:repeat({len(r["days"])},1fr)">{"".join(bars)}</div></section>')
+            f'{render_wx_alerts(r)}'
+            f'<div class="bars" style="grid-template-columns:repeat({len(r["days"])},1fr)">{"".join(bars)}</div>'
+            f'{render_trip(r)}</section>')
+
+
+def render_wx_alerts(r):
+    out = []
+    tz = ZoneInfo(REGION_TZ[r["region"]])
+    for a in r.get("nws_alerts") or []:
+        until = ""
+        try:
+            until = " until " + datetime.fromisoformat(a["ends"]).astimezone(tz).strftime("%a %-I %p")
+        except Exception:
+            pass
+        out.append(f'<a class="wxa" href="{esc(a["url"])}">NWS: {esc(a["event"])}{esc(until)}</a>')
+    return f'<div class="wxas">{"".join(out)}</div>' if out else ""
+
+
+def render_trip(r):
+    t = TRIP.get(r["id"])
+    if not t:
+        return ""
+    road, cams, roads, avy = t
+    lat, lon = POS[r["id"]]
+    nws = f"https://forecast.weather.gov/MapClick.php?lat={lat:.4f}&lon={lon:.4f}"
+    def a(lbl, url, cls=""):
+        return f'<a{" class=" + chr(34) + cls + chr(34) if cls else ""} href="{esc(url)}" target="_blank" rel="noopener">{esc(lbl)}</a>'
+    return (f'<details class="trip"><summary>Going here? Cams, roads, avalanche</summary>'
+            f'<div class="tg"><div class="tl">Mountain</div>{a("Live resort cams", cams, "pri")}{a("NWS hourly forecast", nws)}</div>'
+            f'<div class="tg"><div class="tl">Road: {esc(road)}</div>{"".join(a(l, u) for l, u in roads)}</div>'
+            f'<div class="tg"><div class="tl">Backcountry</div>{"".join(a(l, u) for l, u in avy)}</div>'
+            f'</details>')
 
 
 def render(data, tzs=None):
@@ -547,6 +661,7 @@ def main():
         print(json.dumps({"fatal": True, "warnings": LOG}, indent=1))
         sys.exit(2)
     alerts, call, sunday = alerts_and_call(resorts, now.astimezone(ZoneInfo("America/Denver")))
+    fetch_nws_alerts(resorts)
     srcs = sorted({n for r in resorts for n in r["sources"]})
     radar_meta = None
     try:
@@ -560,6 +675,10 @@ def main():
             radar_meta["hrrr"] = radar.build_hrrr(out, now, log=log)
         except Exception as e:
             log(f"High-res radar: {e}")
+        try:
+            radar_meta["nbm"] = radar.build_nbm(out, now, log=log)
+        except Exception as e:
+            log(f"National Blend map: {e}")
     try:
         import shutil
         shutil.copy(os.path.join(os.path.dirname(os.path.abspath(__file__)), "base.json"), os.path.join(out, "base.json"))
@@ -596,7 +715,7 @@ header h1{margin:0;font-size:21px}
 .provo{color:var(--mut);font-size:13px;margin:6px 2px 0}
 .mapcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin-top:14px}
 .tbar{text-align:center;padding:2px 0 8px}
-#tmain{font-size:24px;font-weight:700;letter-spacing:-.01em}
+#tmain{font-size:21px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
 #tsub{font-size:12.5px;color:var(--mut)}
 .seg{display:flex;justify-content:center;gap:0;margin:0 auto 8px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;width:max-content}
 .seg button{border:none;background:none;color:var(--mut);font:600 13.5px inherit;padding:7px 14px;border-radius:8px;cursor:pointer}
@@ -619,7 +738,7 @@ header h1{margin:0;font-size:21px}
 .ctrl button{flex:none;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
 #play{width:48px;height:48px;background:var(--s2);color:#fff;font-size:18px}
 .ctrl .stp{width:36px;height:36px;background:var(--bg);color:var(--ink);border:1px solid var(--line);font-size:13px}
-#slider{flex:1;min-width:0;accent-color:var(--s2);height:30px}
+#slider{accent-color:var(--s2);height:30px}
 .legend{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:12px;color:var(--mut);margin-top:8px}
 .legend .sw{display:inline-flex;gap:0;vertical-align:middle;margin:0 4px}
 .legend .sw i{display:inline-block;width:14px;height:10px}
@@ -667,7 +786,25 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
 .read{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14.5px}
 .foot{color:var(--mut);font-size:12.5px;margin-top:22px}
 .warn{color:var(--warn);font-size:12px}
-@media (max-width:480px){#tmain{font-size:21px}.grid{grid-template-columns:1fr}.seg button{padding:7px 11px}}
+.wxas{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 8px}
+.wxa{font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;background:#fff1e0;color:#8a4b00;text-decoration:none;border:1px solid #f1c48a}
+details.trip{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+details.trip>summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--s2);list-style:none}
+details.trip>summary::-webkit-details-marker{display:none}
+details.trip>summary::before{content:"▸ "}
+details.trip[open]>summary::before{content:"▾ "}
+.tg{margin-top:8px}
+.tl{font-size:11.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.tg a{display:inline-block;margin:0 5px 5px 0;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);text-decoration:none;font-size:13px}
+.tg a.pri{background:var(--s2);border-color:var(--s2);color:#fff;font-weight:600}
+.dock{margin-top:8px}
+.dock .ctrl{margin-top:0}
+.dock .tbar{flex:1;min-width:0;text-align:left;padding:0 0 0 4px}
+#slider{display:block;width:100%;margin-top:6px}
+.ticks{position:relative;height:16px;margin:0 9px;font-size:11px;color:var(--mut)}
+.ticks span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.ticks span:before{content:"";position:absolute;left:50%;top:-5px;width:1px;height:4px;background:var(--mut)}
+@media (max-width:480px){#tmain{font-size:19px}.grid{grid-template-columns:1fr}.seg button{padding:7px 11px}}
 </style></head><body><div class="wrap">
 <header><h1>Snow Tracker</h1><div class="stamp">Updated {{stamp}}</div></header>
 <div class="call">{{call}}</div>
@@ -675,15 +812,18 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
 <div class="provo">{{provo}}</div>
 
 <div class="mapcard">
-  <div class="tbar"><div id="tmain">Loading…</div><div id="tsub">&nbsp;</div></div>
   <div class="seg" id="seg"><button type="button" data-l="radar" class="on">Future radar</button><button type="button" data-l="snow">Snow total</button></div>
   <div id="map"></div>
+  <div class="dock">
+    <div class="ctrl"><button type="button" class="stp" id="prev" aria-label="Back">◀</button><button type="button" id="play" aria-label="Play">▶</button><button type="button" class="stp" id="next" aria-label="Forward">▶</button><div class="tbar"><div id="tmain">Loading…</div><div id="tsub">&nbsp;</div></div></div>
+    <input type="range" id="slider" min="0" max="0" value="0" aria-label="Forecast time">
+    <div class="ticks" id="ticks"></div>
+  </div>
   <div class="chips" id="chips"></div>
-  <div class="ctrl"><button type="button" class="stp" id="prev" aria-label="Back">◀</button><button type="button" id="play" aria-label="Play">▶</button><button type="button" class="stp" id="next" aria-label="Forward">▶</button><input type="range" id="slider" min="0" max="0" value="0" aria-label="Forecast time"></div>
   <div class="legend" id="legend"></div>
   <div class="mnote" id="mnote">Pinch or use + and − to zoom (on a computer, click the map once to zoom with the scroll wheel), drag to move, tap anywhere for that spot's forecast. White dots are your resorts; their numbers are projected snow from now until the time shown, the same blended forecast as the cards below.</div>
   <div class="links"><a class="primary" href="https://www.windy.com/-Weather-radar-radar?radar,41.0,-112.0,5">Live radar right now</a><a href="https://radar.weather.gov/station/kmtx/standard">Salt Lake radar</a></div>
-  <div class="attr">Imagery: NASA EOSDIS GIBS (Blue Marble), USGS The National Map. Weather: NOAA GFS.</div>
+  <div class="attr">Imagery: NASA EOSDIS GIBS (Blue Marble), USGS The National Map. Weather: NOAA HRRR (0-2 days), National Blend of Models (2-10 days), GFS outside the U.S.</div>
 </div>
 
 <div class="key"><b>What the score means:</b> the number in each card's corner rates that resort's best powder morning in the window, 0 to 10. It is mostly overnight snow before first chair (about 3" = 3.5, 6" = 6, 10" = 7.6, 15" = 9), minus points when the forecasts disagree, gusts top 35 mph (lift holds), temps run above freezing (heavy snow), or it lands on a Utah weekend (crowds). 6+ is a go day, 3.5 to 6 is good, under 3.5 is a refresh. Tap a region name to hide or show it.</div>
@@ -740,15 +880,22 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
     L.geoJSON({type:"FeatureCollection",features:b.states},{pane:"lines",interactive:false,style:function(){return{className:"stb",fill:false}}}).addTo(map);
   }).catch(function(){});
   // ---- timeline: HRRR hourly for ~48 h (West), then GFS out to ~10 days ----
-  var H=R&&R.hrrr?R.hrrr:null,now=Date.now();
-  var gT=R&&R.times?R.times.map(function(t){return new Date(t)}):[],hT=H?H.times.map(function(t){return new Date(t)}):[];
+  var H=R&&R.hrrr?R.hrrr:null,NB=R&&R.nbm&&R.nbm.parts&&R.nbm.parts.length?R.nbm:null,now=Date.now();
+  var gT=R&&R.times?R.times.map(function(t){return new Date(t)}):[],hT=H?H.times.map(function(t){return new Date(t)}):[],nT=NB?NB.times.map(function(t){return new Date(t)}):[];
   function nearest(arr,t){var bi=-1,bd=1e15;for(var i=0;i<arr.length;i++){var d=Math.abs(arr[i]-t);if(d<bd){bd=d;bi=i}}return bi}
-  var F=[];
-  if(H&&hT.length){hT.forEach(function(t,i){F.push({t:t,h:i,g:nearest(gT,t)})});var last=hT[hT.length-1];gT.forEach(function(t,i){if(t>last)F.push({t:t,h:-1,g:i})})}
-  else if(gT.length){gT.forEach(function(t,i){F.push({t:t,h:-1,g:i})})}
+  // NBM: radar = the 6-hr period containing t; snow = cumulative, interpolated between 6-hr steps
+  function fr0(t,h,g){var o={t:t,h:h,g:g,nr:-1,n0:-1,n1:-1,w:0};if(!nT.length)return o;var T=t.getTime(),P=6*3600000;
+    for(var i=0;i<nT.length;i++){if(nT[i].getTime()>=T&&nT[i].getTime()-P<T-1){o.nr=i;break}}
+    if(T<nT[0].getTime()){o.n1=0;o.w=Math.max(0,1-(nT[0].getTime()-T)/P)}
+    else{for(var j=nT.length-1;j>=0;j--){if(nT[j].getTime()<=T){o.n0=j;break}}if(o.n0+1<nT.length){o.n1=o.n0+1;o.w=(T-nT[o.n0].getTime())/(nT[o.n1].getTime()-nT[o.n0].getTime())}}
+    return o}
+  var F=[],tail=NB?nT:gT;
+  if(H&&hT.length){hT.forEach(function(t,i){F.push(fr0(t,i,nearest(gT,t)))});var last=hT[hT.length-1];tail.forEach(function(t){if(t>last)F.push(fr0(t,-1,nearest(gT,t)))})}
+  else if(tail.length){tail.forEach(function(t){F.push(fr0(t,-1,nearest(gT,t)))})}
   else{var seen={};M.resorts.forEach(function(r){r.tl.forEach(function(x){seen[x[0]]=1})});Object.keys(seen).sort().forEach(function(t){F.push({t:new Date(t),h:-1,g:-1})})}
   var times=F.map(function(f){return f.t});
   var sl=$("slider");sl.max=Math.max(0,F.length-1);
+  (function(){var tk=$("ticks"),lk=null,lastPos=-99;F.forEach(function(f,i){var k=f.t.toDateString();if(k===lk)return;lk=k;if(i===0)return;var pos=i/Math.max(1,F.length-1)*100;if(pos-lastPos<7)return;lastPos=pos;var sp=document.createElement("span");sp.style.left=pos+"%";sp.textContent=f.t.toLocaleDateString([],{weekday:"short"});tk.appendChild(sp)})})();
   var start=0;for(var i=0;i<F.length;i++){if(F[i].t.getTime()>=now-90*60000){start=i;break}}
   sl.value=start;var layer="radar",frame=start;
   // ---- resort markers: blended running totals (same numbers as the cards) ----
@@ -758,7 +905,7 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
     var LD={snowbird:["left",0],brighton:["right",9],solitude:["right",-9],targhee:["left",0],jackson:["right",0],sugarbowl:["left",0],palisades:["right",0],sierra:["right",0],abasin:["right",9],winterpark:["right",-9],eldora:["right",0],copper:["left",0]},ld=LD[r.id]||["right",0];
     m.bindTooltip("",{permanent:true,direction:ld[0],className:"rlab",offset:[ld[0]=="left"?-7:7,ld[1]]});
     m.on("click",function(ev){L.DomEvent.stopPropagation(ev);var v=cumAt(r,times[frame]);
-      L.popup().setLatLng([r.lat,r.lon]).setContent("<b>"+r.name+"</b><br>"+Math.round(v)+'" projected by '+fmt(times[frame])+"<br>Next 5 days: ~"+Math.round(r.t5)+'"<br><a href="#'+r.id+'">See the day-by-day card</a>').openOn(map)});
+      L.popup().setLatLng([r.lat,r.lon]).setContent("<b>"+r.name+"</b><br>"+Math.round(v)+'" projected by '+fmt(times[frame])+"<br>Next 5 days: ~"+Math.round(r.t5)+'"<br><a href="#'+r.id+'">Day-by-day card, cams and roads</a>').openOn(map)});
     return{r:r,m:m}});
   function labels(){var z=map.getZoom(),t=times[frame];marks.forEach(function(o){var r=o.r,txt=null;
     if(z>=r.zf)txt=r.name;else if(z>=r.zs&&r.short)txt=r.short;
@@ -776,7 +923,9 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
   function sprite(src){return new Promise(function(res){var im=new Image();im.onload=function(){try{var c=document.createElement("canvas");c.width=im.naturalWidth;c.height=im.naturalHeight;var x=c.getContext("2d",{willReadFrequently:true});x.drawImage(im,0,0);var d=x.getImageData(0,0,c.width,c.height).data,o=new Uint8Array(d.length/4);for(var i=0;i<o.length;i++)o[i]=d[i*4];res(o)}catch(e){res(null)}};im.onerror=function(){res(null)};im.src=src})}
   function meta(m){return{m:m,dlat:(m.north-m.south)/(m.ny-1),dlon:(m.east-m.west)/(m.nx-1),chunks:[],per:m.chunks?m.chunks[0].n:1e9}}
   var G=R?meta(R):null,HDs=H&&H.parts?H.parts.map(function(p){var d=meta(p);d.isH=true;return d}):[],HD=HDs.length?HDs[0]:null;
-  function getv(ds,f,layer){if(ds.isH){var c=Math.floor(f/ds.per),a=ds.chunks[c];return a?{a:a,base:(f-c*ds.per)*ds.m.ny*ds.m.nx}:null}
+  var NDs=NB?NB.parts.map(function(p){var d=meta(p);d.isH=true;d.L={};d.perL={};Object.keys(p.layers).forEach(function(k){d.L[k]=[];d.perL[k]=p.layers[k].length?p.layers[k][0].n:1e9});return d}):[],NOK=false;
+  function getv(ds,f,layer){if(f<0)return null;if(ds.L){var A=ds.L[layer],per=ds.perL[layer];if(!A)return null;var c=Math.floor(f/per),a=A[c];return a?{a:a,base:(f-c*per)*ds.m.ny*ds.m.nx}:null}
+    if(ds.isH){var c=Math.floor(f/ds.per),a=ds.chunks[c];return a?{a:a,base:(f-c*ds.per)*ds.m.ny*ds.m.nx}:null}
     var a=layer=="snow"?ds.snow:ds.radar;return a?{a:a,base:f*ds.m.ny*ds.m.nx}:null}
   var OUT=[0,0,0,0];
   function samp(ds,gv,layer,lat,lon){var m=ds.m,sx=(lon-m.west)/ds.dlon,sy=(m.north-lat)/ds.dlat;if(sx<-.5||sy<-.5||sx>m.nx-.5||sy>m.ny-.5)return null;
@@ -792,16 +941,21 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
   // weather canvas redrawn at screen resolution for the current view: crisp at any zoom
   var cv=document.createElement("canvas");cv.className="wxcv";cv.style.position="absolute";cv.style.pointerEvents="none";map.getPane("wx").appendChild(cv);
   var raf=0;function redraw(){if(raf)return;raf=requestAnimationFrame(function(){raf=0;draw()})}
+  // which sharp model drives this frame: HRRR (radar, first 48 h) → National Blend (to 10 days) → none (GFS only)
+  function hiSrc(fr){if(layer=="radar"){if(fr.h>=0&&HD&&HD.chunks.length)return{ds:HDs,f0:fr.h,f1:-1,w:0,name:"HRRR 3 km model"};if(fr.nr>=0&&NOK)return{ds:NDs,f0:fr.nr,f1:-1,w:0,name:"National Blend 2.5 km (6-hr avg)"};return null}
+    if(NOK&&(fr.n0>=0||fr.n1>=0))return{ds:NDs,f0:fr.n0,f1:fr.n1,w:fr.w,name:"National Blend 2.5 km"};return null}
   function draw(){var fr=F[frame];if(!G||!G.radar||!fr){cv.style.display="none";return}cv.style.display="";
     var sz=map.getSize(),S2=sz.x<700?1.5:1.25,W=Math.ceil(sz.x/S2),Hh=Math.ceil(sz.y/S2);cv.width=W;cv.height=Hh;cv.style.width=sz.x+"px";cv.style.height=sz.y+"px";L.DomUtil.setPosition(cv,map.containerPointToLayerPoint([0,0]));
     var x=cv.getContext("2d"),img=x.createImageData(W,Hh),o=img.data,lonC=new Float64Array(W),latR=new Float64Array(Hh);
     for(var i=0;i<W;i++)lonC[i]=map.containerPointToLatLng([(i+.5)*S2,0]).lng;for(var j=0;j<Hh;j++)latR[j]=map.containerPointToLatLng([0,(j+.5)*S2]).lat;
-    var useH=layer=="radar"&&fr.h>=0&&HD&&HD.chunks.length,gvHs=useH?HDs.map(function(d){return getv(d,fr.h,"radar")}):null,gvG=fr.g>=0?getv(G,fr.g,layer):null,P=layer=="snow"?PS:PR;
+    var hs=hiSrc(fr),gA=hs?hs.ds.map(function(d){return getv(d,hs.f0,layer)}):null,gB=hs&&layer=="snow"?hs.ds.map(function(d){return getv(d,hs.f1,"snow")}):null,hw2=hs?hs.w:0;
+    var gvG=fr.g>=0?getv(G,fr.g,layer):null,P=layer=="snow"?PS:PR;
     function col(v,P2){if(!v)return null;var c=v<0?OUT:P2[v];return[c[0],c[1],c[2],c[3]]}
     for(var j=0;j<Hh;j++){var lat=latR[j];
       for(var i=0;i<W;i++){var lon=lonC[i],d=(j*W+i)*4,hc=null,hit=false,hw=1;
-        if(useH){for(var q=0;q<HDs.length;q++){var hd=HDs[q],hm=hd.m;if(gvHs[q]&&lat<=hm.north&&lat>=hm.south&&lon>=hm.west&&lon<=hm.east){var hv=samp(hd,gvHs[q],"radar",lat,lon);
-          if(hv!==null){hit=true;hc=col(hv,PR);if(hd.edge){var ei=Math.round((hm.north-lat)/hd.dlat)*hm.nx+Math.round((lon-hm.west)/hd.dlon);hw=(hd.edge[ei]||0)/255}}break}}}
+        if(hs){for(var q=0;q<hs.ds.length;q++){var hd=hs.ds[q],hm=hd.m;if((gA[q]||(gB&&gB[q]))&&lat<=hm.north&&lat>=hm.south&&lon>=hm.west&&lon<=hm.east){var hv;
+          if(layer=="radar")hv=samp(hd,gA[q],"radar",lat,lon);else{var v0=gA[q]?samp(hd,gA[q],"snow",lat,lon):0,v1=gB[q]?samp(hd,gB[q],"snow",lat,lon):0;hv=(v0===null||v1===null)?null:Math.round(v0*(1-hw2)+v1*hw2)}
+          if(hv!==null){hit=true;hc=col(hv,P);if(hd.edge){var ei=Math.round((hm.north-lat)/hd.dlat)*hm.nx+Math.round((lon-hm.west)/hd.dlon);hw=(hd.edge[ei]||0)/255}}break}}}
         var c=hc;
         if(!hit||hw<0.999){var gc=gvG?col(samp(G,gvG,layer,lat,lon),P):null;
           if(!hit)c=gc;else{var a1=hc?hc[3]*hw:0,a2=gc?gc[3]*(1-hw):0,at=a1+a2;c=at>0?[((hc?hc[0]*a1:0)+(gc?gc[0]*a2:0))/at,((hc?hc[1]*a1:0)+(gc?gc[1]*a2:0))/at,((hc?hc[2]*a1:0)+(gc?gc[2]*a2:0))/at,at]:null}}
@@ -815,13 +969,13 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
     else{g.innerHTML="<span>Snow piled up by the time shown:</span>"+SB.map(function(b,i){return'<span><i style="display:inline-block;width:12px;height:10px;background:'+SC[i]+';margin-right:3px"></i>'+b+'"</span>'}).join("")}}
   function show(f){frame=f;var fr=F[f];if(!fr)return;var t=fr.t;
     $("tmain").textContent=fmt(t);
-    var src=layer=="radar"&&fr.h>=0&&HD&&HD.chunks.length?"HRRR 3 km model":G?"GFS model":"blended resort forecast";
+    var hs=hiSrc(fr),src=hs?hs.name:G?(NB&&!NOK?"GFS 25 km (sharp layer loading…)":"GFS 25 km model"):"blended resort forecast";
     $("tsub").textContent=rel(t)+" · "+src;
     draw();
     labels()}
   var timer=null;function stop(){if(timer){clearInterval(timer);timer=null;$("play").textContent="▶"}}
   $("play").onclick=function(){if(timer){stop();return}if(frame>=F.length-1){sl.value=start;show(start)}$("play").textContent="❚❚";
-    timer=setInterval(function(){var n=frame+1;if(n>F.length-1){stop();return}sl.value=n;show(n)},layer=="radar"&&F[frame]&&F[frame].h>=0?450:650)};
+    var tick=function(){var n=frame+1;if(n>F.length-1){stop();return}sl.value=n;show(n);clearInterval(timer);timer=setInterval(tick,F[n]&&F[n].h>=0?420:700)};timer=setInterval(tick,450)};
   $("prev").onclick=function(){stop();var n=Math.max(0,frame-1);sl.value=n;show(n)};
   $("next").onclick=function(){stop();var n=Math.min(F.length-1,frame+1);sl.value=n;show(n)};
   sl.addEventListener("input",function(){stop();show(+sl.value)});
@@ -830,13 +984,19 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
     document.querySelectorAll("#seg button").forEach(function(x){x.classList.toggle("on",x===b)});legend();show(frame)}});
   map.on("click",function(e){if(!G||!G.radar)return;var fr=F[frame],la=e.latlng.lat,lo=e.latlng.lng,kinds={1:"Rain",2:"Snow",3:"Mixed or icy"},ints=["","very light","very light","light","light","moderate","moderate","heavy","very heavy"],vr=0,srcn="GFS model, ~25 km grid";
     function pick(ds,f,layer){var i=Math.round((lo-ds.m.west)/ds.dlon),j=Math.round((ds.m.north-la)/ds.dlat);if(i<0||j<0||i>=ds.m.nx||j>=ds.m.ny)return null;var gv=getv(ds,f,layer);return gv?gv.a[gv.base+j*ds.m.nx+i]:null}
-    vr=null;if(fr.h>=0&&HD&&HD.chunks.length){for(var q=0;q<HDs.length;q++){var hv=pick(HDs[q],fr.h,"radar");if(hv!==null&&hv!==255){vr=hv;srcn="HRRR model, ~3 km";break}}}if(vr===null)vr=pick(G,fr.g,"radar")||0;
-    var vs=fr.g>=0?(pick(G,fr.g,"snow")||0)/2:0,k=vr>>4,l=vr&15,nowtxt=vr&&l?kinds[k]+", "+ints[Math.min(l,8)]:"Nothing falling";
-    L.popup().setLatLng(e.latlng).setContent("<b>"+fmt(fr.t)+"</b><br>"+nowtxt+'<br><span style="color:#888">'+srcn+"</span><br>Snow piled up since now (GFS): "+(vs<0.5?"under 0.5":Math.round(vs*2)/2)+'"').openOn(map)});
+    vr=null;if(fr.h>=0&&HD&&HD.chunks.length){for(var q=0;q<HDs.length;q++){var hv=pick(HDs[q],fr.h,"radar");if(hv!==null&&hv!==255){vr=hv;srcn="HRRR model, ~3 km";break}}}
+    if(vr===null&&fr.nr>=0&&NOK){for(var q=0;q<NDs.length;q++){var nv=pick(NDs[q],fr.nr,"radar");if(nv!==null&&nv!==255){vr=nv;srcn="National Blend, ~2.5 km, 6-hr average";break}}}
+    if(vr===null)vr=pick(G,fr.g,"radar")||0;
+    var vs=null,ssrc="GFS";if(NOK&&(fr.n0>=0||fr.n1>=0)){for(var q=0;q<NDs.length;q++){var a0=fr.n0>=0?pick(NDs[q],fr.n0,"snow"):0,a1=fr.n1>=0?pick(NDs[q],fr.n1,"snow"):0;if(a0!==null&&a1!==null&&a0!==255&&a1!==255){vs=(a0*(1-fr.w)+a1*fr.w)/2;ssrc="National Blend";break}}}
+    if(vs===null)vs=fr.g>=0?(pick(G,fr.g,"snow")||0)/2:0;
+    var k=vr>>4,l=vr&15,nowtxt=vr&&l?kinds[k]+", "+ints[Math.min(l,8)]:"Nothing falling";
+    L.popup().setLatLng(e.latlng).setContent("<b>"+fmt(fr.t)+"</b><br>"+nowtxt+'<br><span style="color:#888">'+srcn+"</span><br>Snow piled up from now ("+ssrc+"): "+(vs<0.5?"under 0.5":Math.round(vs*2)/2)+'"').openOn(map)});
   if(!G){$("seg").style.display="none";$("legend").textContent="Model map unavailable tonight; resort numbers still update."}
   legend();show(start);
   if(G){var jobs=[sprite("radar.png"),sprite("snowacc.png")];HDs.forEach(function(d){d.m.chunks.forEach(function(c){jobs.push(sprite(c.file))})});HDs.forEach(function(d){if(d.m.edge)sprite(d.m.edge).then(function(e){d.edge=e;redraw()})});
-    Promise.all(jobs).then(function(a){G.radar=a[0];G.snow=a[1];var pos=2;HDs.forEach(function(d){d.chunks=a.slice(pos,pos+d.m.chunks.length);pos+=d.m.chunks.length;if(d.chunks.some(function(x){return!x}))d.chunks=[]});if(!G.radar){$("legend").textContent="Model map could not load."}show(frame)})}
+    Promise.all(jobs).then(function(a){G.radar=a[0];G.snow=a[1];var pos=2;HDs.forEach(function(d){d.chunks=a.slice(pos,pos+d.m.chunks.length);pos+=d.m.chunks.length;if(d.chunks.some(function(x){return!x}))d.chunks=[]});if(!G.radar){$("legend").textContent="Model map could not load."}show(frame);
+      if(NDs.length){var nj=[];NDs.forEach(function(d){Object.keys(d.m.layers).forEach(function(k){d.m.layers[k].forEach(function(c,ci){nj.push(sprite(c.file).then(function(a){d.L[k][ci]=a}))})});if(d.m.edge)nj.push(sprite(d.m.edge).then(function(e){d.edge=e}))});
+        Promise.all(nj).then(function(){NOK=NDs.every(function(d){return Object.keys(d.m.layers).every(function(k){var A=d.L[k];return A.length==d.m.layers[k].length&&A.every(Boolean)})});show(frame)})}})}
 })();
 </script>
 </body></html>
