@@ -20,7 +20,7 @@
    "stake": 10,
    "confidence": "med",
    "reason": "TSMC was said in 0 of the last 3 calls (Feb, May, Aug 2026). Refreshed 8:15am Nov 17: call is led by interim CEO Colette Kress after Jensen Huang resigned; expected questions center on China, Washington scrutiny and guidance, not suppliers. Market 27% yes; we estimate about 20%. Check the contract rules first: if analysts' words count, skip.",
-   "status": "Go"
+   "status": "Lost"
   },
   {
    "id": "E2",
@@ -34,7 +34,7 @@
    "max_price": 0.58,
    "stake": 10,
    "confidence": "low",
-   "reason": "Refreshed 8:15am Nov 17: PASS. The call will focus on China chip diversion and Washington scrutiny, which raises the chance Taiwan comes up. At 50% the market looks about right.",
+   "reason": "Refreshed 8:15am Nov 17: PASS. The call will focus on China chip diversion and Washington scrutiny, which raises the chance Taiwan comes up. At 50% the market looks about right. Result: Taiwan was not said, so NO would have won.",
    "status": "Passed"
   },
   {
@@ -60,8 +60,9 @@
    "bet": "TSMC NO (paper, 13 at 73c)",
    "paid": 0.73,
    "cost": 9.49,
-   "result": "Open",
-   "pnl": ""
+   "result": "Lost",
+   "pnl": -9.49,
+   "note": "Kress said TSMC once in Q&A (TSMC leadership visited this week). Pending Kalshi's official settlement."
   }
  ]
 }
