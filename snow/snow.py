@@ -402,63 +402,74 @@ def color(score):
     return "s3" if score >= 6 else "s2" if score >= 3.5 else "s1" if score >= 1 else "s0"
 
 
-def xy(lat, lon):
-    lon0, lon1, lat0, lat1 = STATE_MAP["box"]
-    return ((lon - lon0) / (lon1 - lon0) * STATE_MAP["W"], (lat1 - lat) / (lat1 - lat0) * STATE_MAP["H"])
-
-
-# label placement on the map: ("rel", dx, dy) from the dot or ("abs", x, y), plus text anchor
-LABELS = {
-    "snowbasin": ("rel", -12, -8, "end"), "snowbird": ("rel", -14, 16, "end"),
-    "solitude": ("rel", 16, -12, "start"), "brighton": ("rel", 16, 6, "start"),
-    "targhee": ("rel", -12, -6, "end"), "jackson": ("rel", 12, 10, "start"),
-    "steamboat": ("rel", -12, -6, "end"), "snowmass": ("rel", -12, 12, "end"),
-    "eldora": ("abs", 776, 282, "start"), "winterpark": ("abs", 776, 300, "start"),
-    "abasin": ("abs", 776, 318, "start"), "copper": ("abs", 776, 336, "start"),
-    "sugarbowl": ("abs", 128, 318, "end"), "palisades": ("abs", 128, 338, "end"),
-    "sierra": ("abs", 128, 366, "end"), "mammoth": ("rel", 12, 6, "start"),
-}
-STATE_LABELS = {"UT": (39.0, -111.2), "ID": (44.6, -115.2), "WY": (42.6, -107.8), "CO": (38.3, -104.2),
-                "CA": (36.2, -119.6), "NV": (39.6, -116.8), "OR": (44.6, -120.6), "MT": (45.5, -111.5),
-                "AZ": (35.5, -112.0), "NM": (35.5, -105.2)}
 POS = {p[0]: (p[3], p[4]) for p in RESORTS}
+# short map label at wide zoom, and the zoom level at which the full label appears
+MAPLBL = {"snowbird": ("Cottonwoods", 5, 8), "brighton": ("", 99, 8), "solitude": ("", 99, 8),
+          "snowbasin": ("Snowbasin", 5, 7), "targhee": ("Targhee", 5, 7), "jackson": ("", 99, 7),
+          "steamboat": ("Steamboat", 5, 7), "snowmass": ("Aspen", 5, 7), "copper": ("Summit Co.", 5, 8),
+          "abasin": ("", 99, 8), "winterpark": ("", 99, 7), "eldora": ("", 99, 7),
+          "palisades": ("Tahoe", 5, 8), "sugarbowl": ("", 99, 8), "sierra": ("", 99, 8), "mammoth": ("Mammoth", 5, 7)}
 
 
-def render_map(resorts):
-    out = [f'<svg viewBox="0 0 {STATE_MAP["W"]} {STATE_MAP["H"]}" class="map" role="img" aria-label="Map of resorts with forecast snow">']
-    for st, d in STATE_MAP["paths"].items():
-        out.append(f'<path d="{d}" class="st"/>')
-    for st, (la, lo) in STATE_LABELS.items():
-        x, y = xy(la, lo)
-        out.append(f'<text x="{x:.0f}" y="{y:.0f}" class="stl">{st}</text>')
-    for r in resorts:
-        x, y = xy(*POS[r["id"]])
-        best = max(r["days"][:5], key=lambda d: d["score"])
-        rad = 4 + min(9, math.sqrt(max(r["total5"], 0)) * 1.3)
-        kind, a, b, anchor = LABELS.get(r["id"], ("rel", 10, 4, "start"))
-        lx, ly = (x + a, y + b) if kind == "rel" else (a, b)
-        tip = f'{r["name"]}: ~{r["total5"]:.0f}" next 5 days; best morning {best["label"]} ~{best["ovn"]:.0f}"'
-        out.append(f'<a href="#{r["id"]}"><title>{esc(tip)}</title>'
-                   f'<line x1="{x:.0f}" y1="{y:.0f}" x2="{lx:.0f}" y2="{ly - 4:.0f}" class="ld"/>'
-                   f'<circle id="dot-{r["id"]}" cx="{x:.0f}" cy="{y:.0f}" r="{rad:.1f}" class="dot {color(best["score"])}"/>'
-                   f'<text x="{lx:.0f}" y="{ly:.0f}" text-anchor="{anchor}" class="rl">{esc(r["name"])} '
-                   f'<tspan id="val-{r["id"]}" class="rv">{r["total5"]:.0f}"</tspan></text></a>')
-    out.append("</svg>")
-    # playback frames: for each morning, the night before (4 pm-9 am), then that day (9 am-4 pm)
-    days0 = resorts[0]["days"]
-    frames = []
-    for i, d in enumerate(days0):
-        prev = days0[i - 1]["dow"] if i else "Tonight"
-        frames.append(f'{prev} night → {d["dow"]} {d["dnum"]} 9 am' if i else f'Tonight → {d["dow"]} {d["dnum"]} 9 am')
-        frames.append(f'{d["dow"]} {d["dnum"]} daytime')
-    pdata = {"labels": frames, "far": [d["nws_ovn"] is None for d in days0 for _ in (0, 1)],
-             "r": {r["id"]: {"t": round(r["total5"], 1),
-                             "f": [v for d in r["days"] for v in (round(d["ovn"], 1), round(d["day"], 1))],
-                             "c": color(max(r["days"][:5], key=lambda d: d["score"])["score"])} for r in resorts}}
-    ctl = ('<div class="play"><button type="button" id="playbtn" aria-label="Play forecast">▶</button>'
-           f'<input type="range" id="fslider" min="0" max="{len(frames)}" value="0" step="1" aria-label="Forecast time">'
-           '<span id="flabel">Next 5 days, total</span></div>')
-    return "".join(out) + ctl + '<script id="pdata" type="application/json">' + json.dumps(pdata).replace("</", "<\\/") + "</script>"
+def point_timeline(r, tzname):
+    """Cumulative blended snow at the end of each 4pm-9am and 9am-4pm window: [[iso_end, inches], ...]."""
+    tz = ZoneInfo(tzname)
+    out, cum = [], 0.0
+    for d in r["days"]:
+        y, m, dd = map(int, d["date"].split("-"))
+        am = datetime(y, m, dd, 9, tzinfo=tz)
+        cum += d["ovn"]
+        out.append([am.astimezone(UTC).isoformat(), round(cum, 1)])
+        cum += d["day"]
+        out.append([(am + timedelta(hours=7)).astimezone(UTC).isoformat(), round(cum, 1)])
+    return out
+
+
+def render_chart(rs):
+    """Cumulative projected snow by morning for one region, as inline SVG."""
+    pal = ["#4f9be6", "#e8a33d", "#3fb68b", "#d9578f", "#9b7be0", "#7fb3c8"]
+    days = rs[0]["days"]
+    n = len(days)
+    W, H, L, R, T, B = 660, 230, 34, 150, 14, 34
+    series = []
+    for r in rs:
+        cum, pts = 0.0, []
+        for d in r["days"]:
+            cum += d["ovn"]
+            pts.append(cum)
+            cum += d["day"]
+        series.append((r, pts))
+    top = max([6] + [p for _, ps in series for p in ps])
+    step = 2 if top <= 12 else 6 if top <= 36 else 12
+    top = math.ceil(top / step) * step
+    X = lambda i: L + (W - L - R) * (i / max(n - 1, 1))
+    Y = lambda v: T + (H - T - B) * (1 - v / top)
+    o = [f'<svg viewBox="0 0 {W} {H}" class="chart" role="img" aria-label="Projected snow piling up by morning">']
+    far0 = next((i for i, d in enumerate(days) if d["nws_ovn"] is None), None)
+    if far0 is not None:
+        o.append(f'<rect x="{X(far0) - 8:.0f}" y="{T}" width="{X(n - 1) - X(far0) + 16:.0f}" height="{H - T - B}" class="farbg"/>'
+                 f'<text x="{X(n - 1) + 4:.0f}" y="{T + 10}" class="ax" text-anchor="end">models only</text>')
+    v = 0
+    while v <= top:
+        o.append(f'<line x1="{L}" x2="{W - R}" y1="{Y(v):.0f}" y2="{Y(v):.0f}" class="gl"/><text x="{L - 6}" y="{Y(v) + 4:.0f}" class="ax" text-anchor="end">{v}"</text>')
+        v += step
+    for i, d in enumerate(days):
+        o.append(f'<text x="{X(i):.0f}" y="{H - 16}" class="ax" text-anchor="middle">{d["dow"][:2]}</text>'
+                 f'<text x="{X(i):.0f}" y="{H - 4}" class="ax" text-anchor="middle">{d["dnum"]}</text>')
+    ends = []
+    for k, (r, pts) in enumerate(series):
+        c = pal[k % len(pal)]
+        path = " ".join(f'{"M" if i == 0 else "L"}{X(i):.1f},{Y(p):.1f}' for i, p in enumerate(pts))
+        o.append(f'<path d="{path}" class="ln" style="stroke:{c}"/>')
+        o.extend(f'<circle cx="{X(i):.1f}" cy="{Y(p):.1f}" r="2.6" style="fill:{c}"><title>{esc(r["name"])} by {days[i]["dow"]} {days[i]["dnum"]} 9 am: {p:.0f}"</title></circle>' for i, p in enumerate(pts))
+        ends.append([Y(pts[-1]), r["name"], pts[-1], c])
+    ends.sort()
+    for i in range(1, len(ends)):
+        ends[i][0] = max(ends[i][0], ends[i - 1][0] + 14)
+    for y, name, val, c in ends:
+        o.append(f'<text x="{W - R + 8}" y="{y + 4:.0f}" class="el" style="fill:{c}">{esc(name)} {val:.0f}"</text>')
+    o.append("</svg>")
+    return "".join(o)
 
 
 def render_card(r, scale):
@@ -466,7 +477,7 @@ def render_card(r, scale):
     for d in r["days"]:
         h = max(2, round(d["ovn"] / scale * 100))
         far = d["nws_ovn"] is None
-        nws_txt = f', NWS {d["nws_ovn"]}"' if not far else ", model only"
+        nws_txt = f', NWS {d["nws_ovn"]}"' if not far else ", models only"
         tip = (f'{d["label"]}: {d["ovn"]}" overnight (range {d["ovn_lo"]}-{d["ovn_hi"]}"{nws_txt}), '
                f'+{d["day"]}" during the day, score {d["score"]}')
         rng = f'{d["ovn_lo"]:.0f}-{d["ovn_hi"]:.0f}' if d["ovn_hi"] >= 1 and d["ovn_hi"] != d["ovn_lo"] else "&nbsp;"
@@ -489,7 +500,7 @@ def render_card(r, scale):
             f'<div class="bars" style="grid-template-columns:repeat({len(r["days"])},1fr)">{"".join(bars)}</div></section>')
 
 
-def render(data):
+def render(data, tzs=None):
     secs = []
     for reg in ("UT", "WY", "CO", "CA"):
         rs = [r for r in data["resorts"] if r["region"] == reg]
@@ -501,16 +512,24 @@ def render(data):
         top = max(rs, key=lambda r: r["total5"])
         secs.append(f'<details class="reg" id="reg-{reg}" open><summary><span class="rt">{REGION_NAMES[reg]}</span>'
                     f'<span class="rs">{len(rs)} resorts · most snow next 5 days: {esc(top["name"])} ~{top["total5"]:.0f}"</span></summary>'
+                    f'<div class="chartbox"><div class="ct">Projected snow piling up, inches by each morning (overnight + daytime)</div>{render_chart(rs)}</div>'
                     f'<div class="grid">{"".join(render_card(r, scale) for r in rs)}</div></details>')
     alerts = "".join(f'<div class="alert {a["level"]}">{esc(a["text"])}</div>' for a in data["alerts"])
     provo = esc(data["provo"]["text"]) if data.get("provo") else ""
     stamp = datetime.fromisoformat(data["generated"]).astimezone(ZoneInfo("America/Denver")).strftime("%a %b %-d, %-I:%M %p MT")
-    models = ", ".join(data["sources_ok"])
     real = [w for w in data["warnings"] if "Open-Meteo" not in w]
     warn = f'<p class="warn">Missing tonight: {esc("; ".join(real))}</p>' if real else ""
+    tzs = tzs or data.get("tzs") or {}
+    mdata = {"radar": data.get("radar"),
+             "resorts": [{"id": r["id"], "name": r["name"], "lat": POS[r["id"]][0], "lon": POS[r["id"]][1],
+                          "short": MAPLBL.get(r["id"], (r["name"], 5, 7))[0], "zs": MAPLBL.get(r["id"], (r["name"], 5, 7))[1],
+                          "zf": MAPLBL.get(r["id"], (r["name"], 5, 7))[2], "t5": r["total5"],
+                          "tl": point_timeline(r, tzs.get(r["id"], REGION_TZ[r["region"]]))} for r in data["resorts"]]}
     return (TEMPLATE.replace("{{stamp}}", stamp).replace("{{call}}", esc(data["call"]))
-            .replace("{{alerts}}", alerts).replace("{{provo}}", provo).replace("{{map}}", render_map(data["resorts"]))
-            .replace("{{sections}}", "".join(secs)).replace("{{models}}", esc(models)).replace("{{warn}}", warn))
+            .replace("{{alerts}}", alerts).replace("{{provo}}", provo)
+            .replace("{{mdata}}", json.dumps(mdata, separators=(",", ":")).replace("</", "<\\/"))
+            .replace("{{sections}}", "".join(secs)).replace("{{models}}", esc(", ".join(data["sources_ok"])))
+            .replace("{{warn}}", warn).replace("{{leafletcss}}", LEAFLET_CSS))
 
 
 def main():
@@ -525,10 +544,22 @@ def main():
         sys.exit(2)
     alerts, call, sunday = alerts_and_call(resorts, now.astimezone(ZoneInfo("America/Denver")))
     srcs = sorted({n for r in resorts for n in r["sources"]})
+    radar_meta = None
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import radar
+        radar_meta = radar.build(out, now, log=log)
+    except Exception as e:
+        log(f"Model map: {e}")
+    try:
+        import shutil
+        shutil.copy(os.path.join(os.path.dirname(os.path.abspath(__file__)), "base.json"), os.path.join(out, "base.json"))
+    except Exception as e:
+        log(f"Basemap: {e}")
     data = {"generated": now.isoformat(), "call": call, "alerts": alerts, "weekly_outlook": sunday,
             "provo": provo_outlook(members, now), "resorts": resorts, "afd_slc": afd,
             "sources_ok": srcs, "nws_ok": sum(1 for r in resorts if "NWS" in r["sources"]),
-            "snotel_ok": len(snotel), "warnings": LOG}
+            "snotel_ok": len(snotel), "warnings": LOG, "radar": radar_meta, "tzs": tzs}
     json.dump(data, open(os.path.join(out, "data.json"), "w"), indent=1, default=str)
     open(os.path.join(out, "index.html"), "w").write(render(data))
     print(json.dumps({"call": call, "alerts": alerts, "weekly_outlook": sunday, "sources_ok": srcs,
@@ -539,40 +570,69 @@ TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Snow Tracker</title>
+<style>{{leafletcss}}</style>
 <style>
-:root{--bg:#f6f8fb;--card:#fff;--ink:#14202e;--mut:#5d6b7a;--line:#e3e8ef;--land:#eef2f7;--border:#c9d2dd;--s0:#c9d1db;--s1:#9cc3ea;--s2:#3f88d6;--s3:#1d3fa8;--bt:#fff;--warn:#b25b00}
-@media (prefers-color-scheme:dark){:root{--bg:#0e141b;--card:#161f2a;--ink:#e8eef5;--mut:#93a1b1;--line:#253242;--land:#18222e;--border:#33475c;--s0:#3a4757;--s1:#3d6a96;--s2:#4f9be6;--s3:#9ec3ff;--bt:#0e141b}}
+:root{--bg:#f6f8fb;--card:#fff;--ink:#14202e;--mut:#5d6b7a;--line:#e3e8ef;--ocean:#d9e6f2;--land:#f3f5f7;--stb:#8c9bab;--cty:#5f6f80;--s0:#c9d1db;--s1:#9cc3ea;--s2:#3f88d6;--s3:#1d3fa8;--bt:#fff;--warn:#b25b00}
+@media (prefers-color-scheme:dark){:root{--bg:#0e141b;--card:#161f2a;--ink:#e8eef5;--mut:#93a1b1;--line:#253242;--ocean:#0a131c;--land:#1a2531;--stb:#4d6176;--cty:#7d90a4;--s0:#3a4757;--s1:#3d6a96;--s2:#4f9be6;--s3:#9ec3ff;--bt:#0e141b}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-.wrap{max-width:1040px;margin:0 auto;padding:16px 14px 40px}
-header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:1040px;margin:0 auto;padding:14px 12px 40px}
+header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px}
 header h1{margin:0;font-size:21px}
 .stamp{color:var(--mut);font-size:12.5px}
-.call{margin:10px 0 6px;font-size:15px}
+.call{margin:8px 0 6px;font-size:14.5px}
 .alerts{display:flex;flex-direction:column;gap:4px}
 .alert{padding:6px 10px;border-radius:7px;font-size:13px;background:var(--card);border:1px solid var(--line)}
-.alert.powder{border-left:4px solid var(--s3);font-weight:600}
-.alert.storm{border-left:4px solid var(--s2)}
-.alert.away,.alert.early{border-left:4px solid var(--s1)}
+.alert.powder{border-left:4px solid var(--s3);font-weight:600}.alert.storm{border-left:4px solid var(--s2)}.alert.away,.alert.early{border-left:4px solid var(--s1)}
 .provo{color:var(--mut);font-size:13px;margin:6px 2px 0}
-h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:24px 2px 10px}
-.mapbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
-.map{width:100%;height:auto;display:block}
-.map .st{fill:var(--land);stroke:var(--border);stroke-width:1}
-.map .stl{fill:var(--mut);font-size:15px;font-weight:600;opacity:.55;text-anchor:middle;letter-spacing:.08em}
-.map .ld{stroke:var(--mut);stroke-width:.8;opacity:.6}
-.map .dot{stroke:var(--card);stroke-width:1.5}
-.map .dot.s0{fill:var(--s0)}.map .dot.s1{fill:var(--s1)}.map .dot.s2{fill:var(--s2)}.map .dot.s3{fill:var(--s3)}
-.map .rl{fill:var(--ink);font-size:12.5px;font-weight:600;paint-order:stroke;stroke:var(--card);stroke-width:3px}
-.map .rv{fill:var(--s2);font-weight:700}
-.map a:hover .rl{text-decoration:underline}
-.maprow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:8px}
-.legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--mut);font-size:12px}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}
-.links{display:flex;flex-wrap:wrap;gap:8px}
+.mapcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin-top:14px}
+.tbar{text-align:center;padding:2px 0 8px}
+#tmain{font-size:24px;font-weight:700;letter-spacing:-.01em}
+#tsub{font-size:12.5px;color:var(--mut)}
+.seg{display:flex;justify-content:center;gap:0;margin:0 auto 8px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;width:max-content}
+.seg button{border:none;background:none;color:var(--mut);font:600 13.5px inherit;padding:7px 14px;border-radius:8px;cursor:pointer}
+.seg button.on{background:var(--s2);color:#fff}
+#map{height:58vh;min-height:340px;max-height:600px;border-radius:10px;background:var(--ocean)}
+.leaflet-container{background:var(--ocean);font:inherit}
+.cty{fill:var(--land);fill-opacity:1;stroke:var(--cty);stroke-width:1.2}
+.stb{stroke:var(--stb);stroke-width:.9;fill:none}
+.wximg{image-rendering:auto}
+.rm{fill:#fff;stroke:#14202e;stroke-width:2}
+.leaflet-tooltip.rlab{background:rgba(20,32,46,.82);color:#fff;border:none;box-shadow:none;font-size:12px;font-weight:600;padding:2px 6px;border-radius:6px}
+.leaflet-tooltip.rlab:before{display:none}
+.leaflet-popup-content{font-size:13.5px;line-height:1.4;margin:10px 12px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 2px;-webkit-overflow-scrolling:touch}
+.chips button{flex:none;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:16px;padding:6px 12px;font:600 13px inherit;cursor:pointer}
+.ctrl{display:flex;align-items:center;gap:8px;margin-top:8px}
+.ctrl button{flex:none;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#play{width:48px;height:48px;background:var(--s2);color:#fff;font-size:18px}
+.ctrl .stp{width:36px;height:36px;background:var(--bg);color:var(--ink);border:1px solid var(--line);font-size:13px}
+#slider{flex:1;min-width:0;accent-color:var(--s2);height:30px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:12px;color:var(--mut);margin-top:8px}
+.legend .sw{display:inline-flex;gap:0;vertical-align:middle;margin:0 4px}
+.legend .sw i{display:inline-block;width:14px;height:10px}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .links a{padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);text-decoration:none;font-size:13.5px}
 .links a.primary{background:var(--s2);border-color:var(--s2);color:#fff;font-weight:600}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px}
+.mnote{font-size:12px;color:var(--mut);margin-top:8px}
+.key{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--mut);margin-top:16px}
+.key b{color:var(--ink)}
+details.reg{margin-top:18px}
+details.reg>summary{list-style:none;cursor:pointer;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:8px 2px 10px}
+details.reg>summary::-webkit-details-marker{display:none}
+details.reg>summary::before{content:"▾";color:var(--mut);font-size:14px;width:12px}
+details.reg:not([open])>summary::before{content:"▸"}
+.rt{font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.rs{font-size:12.5px;color:var(--mut)}
+.chartbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 10px 4px;margin-bottom:12px}
+.ct{font-size:12.5px;color:var(--mut);margin:0 2px 4px}
+.chart{width:100%;height:auto;display:block}
+.chart .gl{stroke:var(--line);stroke-width:1}
+.chart .ax{fill:var(--mut);font-size:11px}
+.chart .ln{fill:none;stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round}
+.chart .el{font-size:12px;font-weight:700}
+.chart .farbg{fill:var(--line);opacity:.45}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;scroll-margin-top:12px}
 .card:target{outline:2px solid var(--s2)}
 .ch{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
@@ -584,41 +644,33 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)
 .bars{display:grid;gap:3px;align-items:start}
 .bar{text-align:center;font-size:10.5px}
 .bar .v{font-weight:700;font-size:12px}
-.track{height:70px;display:flex;align-items:flex-end;justify-content:center;background:linear-gradient(var(--line),var(--line)) bottom/100% 1px no-repeat}
+.track{height:66px;display:flex;align-items:flex-end;justify-content:center;background:linear-gradient(var(--line),var(--line)) bottom/100% 1px no-repeat}
 .fill{width:72%;border-radius:4px 4px 0 0}
 .fill.s0{background:var(--s0)}.fill.s1{background:var(--s1)}.fill.s2{background:var(--s2)}.fill.s3{background:var(--s3)}
 .bar.far .fill{opacity:.5;background-image:repeating-linear-gradient(45deg,transparent 0 3px,rgba(255,255,255,.35) 3px 6px)}
 .bar.far .v,.bar.far .dl{opacity:.65}
 .rng{color:var(--mut);font-size:10px}
 .dl{color:var(--mut);margin-top:1px;line-height:1.2}
-.play{display:flex;align-items:center;gap:10px;margin:8px 4px 2px}
-.play button{width:36px;height:36px;border-radius:50%;border:none;background:var(--s2);color:#fff;font-size:15px;cursor:pointer;flex:none}
-.play input{flex:1;accent-color:var(--s2)}
-#flabel{font-size:13.5px;font-weight:600;min-width:170px;text-align:right}
-#flabel.far{color:var(--mut);font-style:italic}
-.map .dot{transition:r .35s ease}
-details.reg{margin-top:20px}
-details.reg>summary{list-style:none;cursor:pointer;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:6px 2px 10px}
-details.reg>summary::-webkit-details-marker{display:none}
-details.reg>summary::before{content:"▾";color:var(--mut);font-size:13px;width:12px}
-details.reg:not([open])>summary::before{content:"▸"}
-.rt{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink);font-weight:700}
-.rs{font-size:12.5px;color:var(--mut)}
-.key{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--mut);margin-top:18px}
-.key b{color:var(--ink)}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:24px 2px 10px}
 .read{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14.5px}
 .foot{color:var(--mut);font-size:12.5px;margin-top:22px}
 .warn{color:var(--warn);font-size:12px}
+@media (max-width:480px){#tmain{font-size:21px}.grid{grid-template-columns:1fr}.seg button{padding:7px 11px}}
 </style></head><body><div class="wrap">
-<header><h1>Snow Tracker</h1><div class="stamp">Updated {{stamp}} · forecasts only, no resort reports</div></header>
+<header><h1>Snow Tracker</h1><div class="stamp">Updated {{stamp}}</div></header>
 <div class="call">{{call}}</div>
 <div class="alerts">{{alerts}}</div>
 <div class="provo">{{provo}}</div>
 
-<h2>Where the snow is headed: projected totals, press play to step through each night and day</h2>
-<div class="mapbox">{{map}}
-<div class="maprow"><div class="legend"><span>Dot size = projected snow · color:</span><span><i style="background:var(--s3)"></i>go</span><span><i style="background:var(--s2)"></i>good</span><span><i style="background:var(--s1)"></i>refresh</span><span><i style="background:var(--s0)"></i>little or none</span></div>
-<div class="links"><a class="primary" href="https://www.windy.com/-Weather-radar-radar?radar,41.0,-112.0,5">Live radar (whole West)</a><a href="https://radar.weather.gov/station/kmtx/standard">Salt Lake radar</a><a href="https://www.windy.com/-Snow-accumulation-snowAccu?snowAccu,40.6,-111.6,6">Snow forecast map</a></div></div>
+<div class="mapcard">
+  <div class="tbar"><div id="tmain">Loading…</div><div id="tsub">&nbsp;</div></div>
+  <div class="seg" id="seg"><button type="button" data-l="radar" class="on">Future radar</button><button type="button" data-l="snow">Snow total</button></div>
+  <div id="map"></div>
+  <div class="chips" id="chips"></div>
+  <div class="ctrl"><button type="button" class="stp" id="prev" aria-label="Back">◀</button><button type="button" id="play" aria-label="Play">▶</button><button type="button" class="stp" id="next" aria-label="Forward">▶</button><input type="range" id="slider" min="0" max="0" value="0" aria-label="Forecast time"></div>
+  <div class="legend" id="legend"></div>
+  <div class="mnote" id="mnote">Pinch or use + and − to zoom (on a computer, click the map once to zoom with the scroll wheel), drag to move, tap anywhere for that spot's forecast. White dots are your resorts; their numbers are projected snow from now until the time shown, the same blended forecast as the cards below.</div>
+  <div class="links"><a class="primary" href="https://www.windy.com/-Weather-radar-radar?radar,41.0,-112.0,5">Live radar right now</a><a href="https://radar.weather.gov/station/kmtx/standard">Salt Lake radar</a></div>
 </div>
 
 <div class="key"><b>What the score means:</b> the number in each card's corner rates that resort's best powder morning in the window, 0 to 10. It is mostly overnight snow before first chair (about 3" = 3.5, 6" = 6, 10" = 7.6, 15" = 9), minus points when the forecasts disagree, gusts top 35 mph (lift holds), temps run above freezing (heavy snow), or it lands on a Utah weekend (crowds). 6+ is a go day, 3.5 to 6 is good, under 3.5 is a refresh. Tap a region name to hide or show it.</div>
@@ -636,37 +688,769 @@ details.reg:not([open])>summary::before{content:"▸"}
 </div>
 
 <div class="foot">
-<p><b>How to read it.</b> Each bar is snow expected between 4 pm and 9 am before that morning: the official NWS snowfall forecast averaged with the median of the independent weather models. Small numbers under a bar are the low-high range across sources. Faded, striped bars are past the NWS forecast range (about 7 days) and come from the weather models alone, with no NWS forecaster input, so treat them as an early look. Sources this run: {{models}}. The score (0 to 10) starts from overnight snow and loses points for low agreement, gusts over 35 mph, above-freezing temps, and Utah weekends. Snow on the ground comes from the nearest SNOTEL station (measured, not resort-reported). Tap a map dot to jump to that resort, and tap a bar for its details. The live radar can't run inside this page, so the radar buttons open it in a new tab.</p>
+<p><b>How to read it.</b> The map's colors come from NOAA's GFS weather model (about 25 km grid), stepping every 3 hours for 5 days and every 6 hours after that. "Future radar" shows what the model expects to be falling at each time; "Snow total" shows snow piled up from now to that time. The model's grid smooths mountain peaks, so its mountain totals usually run lower than the resort numbers. The resort numbers on the map, the charts, and the cards use the finer blended forecast: the official NWS snowfall forecast averaged with the median of the independent weather models. Faded, striped bars and shaded chart areas are past the NWS range (about 7 days) and come from models alone. Sources this run: {{models}}. Snow on the ground comes from the nearest SNOTEL station (measured, not resort-reported). The live radar can't run inside this page, so that button opens it in a new tab.</p>
 {{warn}}
 </div>
+</div>
+<script id="mdata" type="application/json">{{mdata}}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 (function(){
-  var P;try{P=JSON.parse(document.getElementById("pdata").textContent)}catch(e){return}
-  var sl=document.getElementById("fslider"),lb=document.getElementById("flabel"),btn=document.getElementById("playbtn"),timer=null;
-  function rad(v,total){return total?4+Math.min(9,Math.sqrt(Math.max(v,0))*1.3):(v<0.5?3:4+Math.min(11,Math.sqrt(v)*2.6))}
-  function cls(v){return v>=8?"s3":v>=4?"s2":v>=1?"s1":"s0"}
-  function show(i){
-    var total=i==0;lb.textContent=total?"Next 5 days, total":P.labels[i-1]+(P.far[i-1]?" (models only)":"");
-    lb.className=(!total&&P.far[i-1])?"far":"";
-    for(var id in P.r){var d=P.r[id],v=total?d.t:(d.f[i-1]||0),c=document.getElementById("dot-"+id),t=document.getElementById("val-"+id);
-      if(!c||!t)continue;c.setAttribute("r",rad(v,total).toFixed(1));c.setAttribute("class","dot "+(total?d.c:cls(v)));t.textContent=Math.round(v)+'"';}
-  }
-  sl.addEventListener("input",function(){show(+sl.value)});
-  btn.addEventListener("click",function(){
-    if(timer){clearInterval(timer);timer=null;btn.textContent="▶";return}
-    btn.textContent="❚❚";if(+sl.value>=+sl.max)sl.value=0;
-    timer=setInterval(function(){var n=+sl.value+1;if(n>+sl.max){clearInterval(timer);timer=null;btn.textContent="▶";return}sl.value=n;show(n)},900);
-  });
-  document.querySelectorAll("details.reg").forEach(function(d){
+  try{document.querySelectorAll("details.reg").forEach(function(d){
     try{if(localStorage.getItem("snow-hide-"+d.id)==="1")d.removeAttribute("open")}catch(e){}
     d.addEventListener("toggle",function(){try{localStorage.setItem("snow-hide-"+d.id,d.open?"0":"1")}catch(e){}});
-  });
+  })}catch(e){}
+  var M=JSON.parse(document.getElementById("mdata").textContent),R=M.radar;
+  var $=function(id){return document.getElementById(id)};
+  if(typeof L==="undefined"){$("tmain").textContent="Map could not load";return}
+  var map=L.map("map",{attributionControl:false,zoomSnap:0.5,minZoom:3,maxZoom:10,scrollWheelZoom:false,maxBounds:[[10,-150],[60,-50]]});map.on("click",function(){map.scrollWheelZoom.enable()});map.on("mouseout",function(){map.scrollWheelZoom.disable()});
+  map.createPane("land").style.zIndex=200;map.createPane("wx").style.zIndex=300;
+  var lp=map.createPane("lines");lp.style.zIndex=350;lp.style.pointerEvents="none";
+  var VIEWS={"West":[[35.6,-124.4],[45.6,-104.2]],"Utah":[[39.9,-112.4],[41.5,-110.9]],"Tahoe":[[38.4,-120.9],[39.7,-119.5]],"Mammoth":[[37.2,-119.5],[38.0,-118.5]],"Tetons":[[43.2,-111.5],[44.2,-110.3]],"Colorado":[[38.9,-107.4],[40.7,-105.2]],"USA":[[24.5,-125],[49.5,-66.5]]};
+  map.fitBounds(VIEWS.West);
+  Object.keys(VIEWS).forEach(function(k){var b=document.createElement("button");b.type="button";b.textContent=k;b.onclick=function(){map.flyToBounds(VIEWS[k],{duration:.6})};$("chips").appendChild(b)});
+  fetch("base.json").then(function(r){return r.json()}).then(function(b){
+    L.geoJSON({type:"FeatureCollection",features:b.countries},{pane:"land",interactive:false,style:function(){return{className:"cty"}}}).addTo(map);
+    L.geoJSON({type:"FeatureCollection",features:b.states},{pane:"lines",interactive:false,style:function(){return{className:"stb",fill:false}}}).addTo(map);
+  }).catch(function(){});
+  // frame times
+  var times=[];
+  if(R&&R.times&&R.times.length){times=R.times.map(function(t){return new Date(t)})}
+  else{var seen={};M.resorts.forEach(function(r){r.tl.forEach(function(x){seen[x[0]]=1})});times=Object.keys(seen).sort().map(function(t){return new Date(t)})}
+  var sl=$("slider");sl.max=Math.max(0,times.length-1);
+  var start=0,now=Date.now();for(var i=0;i<times.length;i++){if(times[i].getTime()>=now-90*60000){start=i;break}}
+  sl.value=start;
+  var layer="radar",frame=start;
+  // resort markers and their blended running totals
+  function cumAt(r,t){var tl=r.tl,prev=0,ps=new Date(tl[0][0]).getTime()-17*3600000,T=t.getTime(),base=times.length?times[start].getTime():T;
+    function at(T2){var p=0,s=new Date(tl[0][0]).getTime()-17*3600000;for(var k=0;k<tl.length;k++){var e=new Date(tl[k][0]).getTime();if(T2>=e){p=tl[k][1];s=e;continue}var c=tl[k][1];return p+(c-p)*Math.max(0,(T2-s)/(e-s))}return p}
+    return Math.max(0,at(T)-at(base))}
+  var marks=M.resorts.map(function(r){var m=L.circleMarker([r.lat,r.lon],{radius:5,className:"rm"}).addTo(map);
+    m.bindTooltip("",{permanent:true,direction:"right",className:"rlab",offset:[7,0]});
+    m.on("click",function(ev){L.DomEvent.stopPropagation(ev);var v=cumAt(r,times[frame]);
+      L.popup().setLatLng([r.lat,r.lon]).setContent("<b>"+r.name+"</b><br>"+Math.round(v)+'" projected by '+fmt(times[frame])+"<br>Next 5 days: ~"+Math.round(r.t5)+'"<br><a href="#'+r.id+'">See the day-by-day card</a>').openOn(map)});
+    return{r:r,m:m}});
+  function labels(){var z=map.getZoom(),t=times[frame];marks.forEach(function(o){var r=o.r,txt=null;
+    if(z>=r.zf)txt=r.name;else if(z>=r.zs&&r.short)txt=r.short;
+    if(txt===null){o.m.closeTooltip();return}
+    o.m.setTooltipContent(txt+" "+Math.round(cumAt(r,t))+'"');if(!o.m.isTooltipOpen())o.m.openTooltip()})}
+  map.on("zoomend",labels);
+  // model grids
+  var A=null,S=null,cache={},overlay=null;
+  var RAIN=["#9be89b","#6fd66f","#3fbd3f","#1f9a1f","#e8e000","#f5a300","#f05a00","#cc0000"],SNOW=["#cfe8ff","#a8d4ff","#7ab8ff","#4d94ff","#2f66eb","#3b35d0","#7330d0","#a82bd0"],MIX=["#ffd6ea","#ffb8dc","#ff94c9","#ff6fb5","#f2479f","#d6267f","#b3125f","#8c0046"];
+  var SB=[0.5,1,2,3,4,6,8,12,18,24,30,36,48],SC=["#bdd7e7","#6baed6","#3182bd","#08519c","#082694","#ffff96","#ffc400","#ff8700","#db1400","#9e0000","#690000","#ccccff","#9f8cd8"];
+  function hex(h,a){return[parseInt(h.substr(1,2),16),parseInt(h.substr(3,2),16),parseInt(h.substr(5,2),16),a]}
+  var PR=[],PS=[];for(var v=0;v<256;v++){var k=v>>4,l=v&15,c=[0,0,0,0];if(v&&l){var pal=k==2?SNOW:k==3?MIX:RAIN;c=hex(pal[Math.min(l,8)-1],l<=1?140:l<=2?185:225)}PR.push(c);
+    var inch=v/2,cs=[0,0,0,0];for(var q=SB.length-1;q>=0;q--){if(inch>=SB[q]){cs=hex(SC[q],205);break}}PS.push(cs)}
+  function sprite(src){return new Promise(function(res){var im=new Image();im.onload=function(){try{var c=document.createElement("canvas");c.width=im.naturalWidth;c.height=im.naturalHeight;var x=c.getContext("2d",{willReadFrequently:true});x.drawImage(im,0,0);res(x.getImageData(0,0,c.width,c.height).data)}catch(e){res(null)}};im.onerror=function(){res(null)};im.src=src})}
+  var B=null,rows=null,rowsF=null,OW=0,OH=0;
+  if(R){var dlat=(R.north-R.south)/(R.ny-1),dlon=(R.east-R.west)/(R.nx-1),N=R.north+dlat/2,Sx=R.south-dlat/2,W=R.west-dlon/2,E=R.east+dlon/2;
+    B=[[Sx,W],[N,E]];var mer=function(a){return Math.log(Math.tan(Math.PI/4+a*Math.PI/360))},yN=mer(N),yS=mer(Sx);
+    OW=R.nx;OH=Math.round(R.ny*1.5);rows=new Int32Array(OH);rowsF=new Float32Array(OH);
+    for(var j=0;j<OH;j++){var y=yN-(j+.5)/OH*(yN-yS),la=(2*Math.atan(Math.exp(y))-Math.PI/2)*180/Math.PI;rows[j]=Math.min(R.ny-1,Math.max(0,Math.round((R.north-la)/dlat)));rowsF[j]=(R.north-la)/dlat}}
+  function frameURL(f){var key=layer+f;if(cache[key])return cache[key];var D=layer=="radar"?A:S;if(!D)return null;
+    var U=4,w=OW*U,h=OH*U,nx=R.nx,ny=R.ny,base=f*ny*nx,c=document.createElement("canvas");c.width=w;c.height=h;var x=c.getContext("2d"),img=x.createImageData(w,h),o=img.data;
+    for(var j=0;j<h;j++){var sy=rowsF[Math.floor(j/U)]+((j%U)+.5)/U*(rowsF[Math.min(OH-1,Math.floor(j/U)+1)]-rowsF[Math.floor(j/U)]),y0=Math.max(0,Math.min(ny-1,Math.floor(sy))),y1=Math.min(ny-1,y0+1),fy=Math.max(0,Math.min(1,sy-y0));
+      for(var i=0;i<w;i++){var sx=(i+.5)/U-.5,x0=Math.max(0,Math.min(nx-1,Math.floor(sx))),x1=Math.min(nx-1,x0+1),fx=Math.max(0,Math.min(1,sx-x0));
+        var a00=D[(base+y0*nx+x0)*4],a01=D[(base+y0*nx+x1)*4],a10=D[(base+y1*nx+x0)*4],a11=D[(base+y1*nx+x1)*4],w00=(1-fx)*(1-fy),w01=fx*(1-fy),w10=(1-fx)*fy,w11=fx*fy,p,d=(j*w+i)*4;
+        if(layer=="radar"){var l=(a00&15)*w00+(a01&15)*w01+(a10&15)*w10+(a11&15)*w11;if(l<0.6){o[d+3]=0;continue}
+          var k=a00>>4,bw=a00?w00:-1;if(a01&&w01>bw){k=a01>>4;bw=w01}if(a10&&w10>bw){k=a10>>4;bw=w10}if(a11&&w11>bw){k=a11>>4}
+          p=PR[(k||1)*16+Math.max(1,Math.min(8,Math.round(l)))]}
+        else{p=PS[Math.round(a00*w00+a01*w01+a10*w10+a11*w11)]}
+        o[d]=p[0];o[d+1]=p[1];o[d+2]=p[2];o[d+3]=p[3]}}
+    x.putImageData(img,0,0);return cache[key]=c.toDataURL()}
+  function fmt(t){return t.toLocaleString([], {weekday:"short",hour:"numeric"})}
+  function rel(t){var h=Math.round((t.getTime()-Date.now())/3600000);if(Math.abs(h)<=1)return"right now";if(h<0)return-h+" hrs ago";if(h<48)return"in "+h+" hrs";return"in "+Math.round(h/24)+" days"}
+  function legend(){var g=$("legend");if(layer=="radar"){function sw(p){return'<span class="sw">'+p.map(function(c){return'<i style="background:'+c+'"></i>'}).join("")+"</span>"}
+      g.innerHTML="<span>Light → heavy:</span><span>Snow"+sw(SNOW)+"</span><span>Mix/ice"+sw(MIX)+"</span><span>Rain"+sw(RAIN)+"</span>"}
+    else{g.innerHTML="<span>Snow piled up by the time shown:</span>"+SB.map(function(b,i){return'<span><i style="display:inline-block;width:12px;height:10px;background:'+SC[i]+';margin-right:3px"></i>'+b+'"</span>'}).join("")}}
+  function show(f){frame=f;var t=times[f];if(!t)return;
+    $("tmain").textContent=fmt(t);
+    var run=R?new Date(R.run):null;$("tsub").textContent=rel(t)+(R?" · GFS model run "+run.toLocaleString([], {weekday:"short",hour:"numeric"}):" · blended resort forecast");
+    if(R){var u=frameURL(f);if(u){if(!overlay)overlay=L.imageOverlay(u,B,{pane:"wx",opacity:.85,className:"wximg",interactive:false}).addTo(map);else overlay.setUrl(u)}}
+    labels()}
+  var timer=null;function stop(){if(timer){clearInterval(timer);timer=null;$("play").textContent="▶"}}
+  $("play").onclick=function(){if(timer){stop();return}if(frame>=times.length-1){sl.value=start;show(start)}$("play").textContent="❚❚";
+    timer=setInterval(function(){var n=frame+1;if(n>times.length-1){stop();return}sl.value=n;show(n)},650)};
+  $("prev").onclick=function(){stop();var n=Math.max(0,frame-1);sl.value=n;show(n)};
+  $("next").onclick=function(){stop();var n=Math.min(times.length-1,frame+1);sl.value=n;show(n)};
+  sl.addEventListener("input",function(){stop();show(+sl.value)});
+  document.querySelectorAll("#seg button").forEach(function(b){b.onclick=function(){layer=b.getAttribute("data-l");if(layer=="snow"&&frame===start){var tgt=Date.now()+5*86400000,bi=start;for(var q=start;q<times.length;q++){if(times[q].getTime()<=tgt)bi=q}frame=bi;sl.value=bi}document.querySelectorAll("#seg button").forEach(function(x){x.classList.toggle("on",x===b)});legend();show(frame)}});
+  map.on("click",function(e){if(!R||!A)return;var i=Math.round((e.latlng.lng-R.west)/((R.east-R.west)/(R.nx-1))),j=Math.round((R.north-e.latlng.lat)/((R.north-R.south)/(R.ny-1)));
+    if(i<0||j<0||i>=R.nx||j>=R.ny)return;var idx=((frame*R.ny+j)*R.nx+i)*4,vr=A[idx],vs=S?S[idx]/2:0,k=vr>>4,l=vr&15;
+    var kinds={1:"Rain",2:"Snow",3:"Mixed or icy"},ints=["","very light","very light","light","light","moderate","moderate","heavy","very heavy"];
+    var now=vr&&l?kinds[k]+", "+ints[Math.min(l,8)]:"Nothing falling";
+    L.popup().setLatLng(e.latlng).setContent("<b>"+fmt(times[frame])+"</b><br>"+now+"<br>Snow piled up since now: "+(vs<0.5?"under 0.5":Math.round(vs*2)/2)+'"<br><span style="color:#888">GFS model, ~25 km grid</span>').openOn(map)});
+  if(!R){$("seg").style.display="none";$("legend").textContent="Model map unavailable tonight; resort numbers still update."}
+  legend();show(start);
+  if(R){Promise.all([sprite("radar.png"),sprite("snowacc.png")]).then(function(a){A=a[0];S=a[1];if(!A){$("legend").textContent="Model map could not load."}cache={};show(frame)})}
 })();
 </script>
-</div></body></html>
+</body></html>
 """
 
-STATE_MAP = {"W":900,"H":546,"box":[-124.8,-101.6,35.2,45.9],"paths":{"AZ":"M391,673L392,671L395,672L399,671L398,669L401,666L401,663L399,657L397,656L394,656L391,654L392,651L393,644L391,643L392,640L391,638L393,637L397,631L399,630L398,628L399,623L399,619L398,617L399,614L399,612L402,606L402,603L403,602L406,600L408,599L410,598L414,594L414,592L412,589L410,589L406,584L404,584L404,581L401,571L397,568L396,565L394,563L394,556L395,552L394,551L397,549L397,546L396,538L395,535L393,533L393,531L393,529L393,525L392,523L393,521L392,520L392,518L391,515L392,513L393,512L392,510L390,506L391,504L390,501L393,499L394,498L397,497L399,497L403,498L405,498L407,501L410,504L413,504L416,496L417,485L417,473L417,454L445,454L476,454L519,454L533,454L555,454L589,454L611,454L611,528L611,539L611,581L611,607L611,614L611,619L611,743L602,743L574,743L556,743L532,743L482,722L453,711L439,705L387,684L388,681L388,678L391,673Z","CO":"M611,250L645,250L666,250L712,250L721,250L740,250L774,250L805,250L844,250L863,250L882,250L882,301L883,318L883,337L883,345L883,401L883,407L883,455L857,454L854,454L846,454L817,454L794,454L768,454L763,454L721,454L696,455L674,454L642,454L611,454L611,429L611,427L611,395L611,389L611,366L611,357L611,276L611,274L611,250Z","KS":"M882,301L918,301L933,301L969,301L1007,301L1030,301L1069,301L1105,301L1126,301L1144,301L1146,304L1148,304L1148,306L1150,306L1151,307L1154,308L1155,306L1159,307L1159,309L1161,310L1160,312L1159,313L1161,313L1161,315L1158,314L1157,317L1155,318L1154,320L1154,322L1152,323L1152,325L1154,327L1156,329L1158,332L1160,332L1160,334L1160,337L1163,340L1165,342L1165,343L1167,343L1169,344L1172,344L1171,346L1171,365L1171,371L1171,401L1171,403L1171,438L1171,442L1171,454L1136,454L1109,454L1085,454L1055,454L1026,454L990,454L976,454L954,454L934,454L904,454L883,455L883,407L883,401L883,345L883,337L883,318L882,301Z","SD":"M805,46L805,8L805,-2L820,-2L844,-2L885,-2L902,-2L937,-2L962,-2L989,-2L1024,-2L1040,-2L1066,-2L1095,-2L1095,4L1093,6L1091,9L1088,10L1085,13L1084,15L1088,19L1089,23L1091,25L1093,25L1098,28L1100,31L1100,52L1100,65L1100,69L1100,122L1094,122L1094,125L1097,128L1097,133L1095,133L1096,135L1099,137L1099,140L1100,142L1099,145L1097,145L1098,148L1097,149L1096,152L1096,156L1095,156L1094,159L1093,160L1093,163L1095,164L1097,167L1099,171L1098,173L1100,174L1098,174L1094,173L1093,171L1090,168L1091,166L1089,165L1086,165L1086,163L1082,162L1080,162L1079,160L1073,160L1070,158L1070,156L1067,155L1064,155L1062,155L1059,155L1057,156L1054,155L1052,156L1048,156L1046,155L1043,158L1042,160L1039,160L1035,157L1030,154L1022,151L1020,148L1005,148L979,148L957,148L928,148L899,148L890,148L866,148L846,148L805,148L805,133L805,52L805,46Z","WY":"M805,46L805,52L805,132L805,148L805,250L775,250L740,250L721,250L712,250L666,250L645,250L611,250L592,250L572,250L565,250L546,250L533,250L533,231L534,221L533,199L533,169L534,162L534,114L533,91L533,79L533,73L533,65L533,53L533,46L544,46L547,46L559,46L560,46L566,46L570,46L582,46L609,46L610,46L641,46L685,46L687,46L707,46L732,46L735,46L754,46L789,46L805,46Z","NM":"M611,454L642,454L674,454L695,454L721,454L763,454L768,454L794,454L817,454L846,454L846,474L846,480L844,480L844,489L844,524L844,543L844,610L844,620L843,638L843,645L843,656L843,709L818,709L786,709L751,709L705,709L705,714L705,716L706,717L708,719L679,720L644,720L644,743L611,743L611,619L611,614L611,607L611,581L611,540L611,528L611,454Z","CA":"M240,634L243,634L247,636L249,637L252,641L251,643L249,642L246,642L245,640L245,637L242,636L240,634ZM240,657L245,662L250,667L247,668L245,666L243,663L241,658ZM208,606L211,606L209,607L207,606ZM203,644L204,644L207,645L208,647L207,647L204,646L203,644ZM189,603L192,604L194,605L196,604L198,606L201,606L202,605L205,606L203,607L199,608L197,609L191,608L191,606L189,603ZM177,607L180,607L181,606L183,606L185,605L185,608L187,608L187,610L181,613L179,611L177,607ZM169,605L171,605L173,605L175,606L172,606L169,605ZM23,199L44,199L56,199L64,199L68,199L84,199L89,199L102,199L109,199L130,199L146,199L173,199L186,199L186,263L186,297L186,315L186,335L186,341L186,352L190,355L206,370L222,385L231,393L244,406L262,422L270,430L288,448L332,491L364,524L374,535L394,556L394,563L396,565L397,568L401,571L404,581L404,584L406,584L410,589L412,589L414,592L414,594L410,597L408,599L406,600L403,602L402,603L402,606L398,611L399,614L398,617L399,619L400,623L398,628L399,630L397,631L393,637L391,638L392,640L391,643L393,644L392,651L391,654L393,657L396,657L399,657L401,663L401,666L398,669L399,671L395,672L392,671L391,673L333,678L298,682L297,678L296,675L293,675L293,672L293,669L292,667L293,665L292,658L290,652L289,650L283,641L280,639L278,636L276,635L272,631L269,628L267,627L264,625L260,621L257,619L257,621L254,622L251,622L250,621L248,620L247,619L248,617L249,615L247,610L245,607L243,605L238,605L235,606L233,607L231,605L227,605L222,602L220,602L217,600L214,594L210,591L207,588L204,587L199,586L197,587L194,586L191,586L186,584L183,584L181,583L175,583L168,584L166,580L164,579L162,579L161,578L163,571L161,569L163,563L160,561L161,556L162,550L159,547L157,547L153,546L151,544L153,538L153,536L151,533L147,533L143,528L141,524L138,523L135,520L135,516L132,514L131,513L129,511L129,507L128,505L125,504L123,499L120,495L115,492L113,490L112,487L112,485L111,481L111,477L110,476L111,473L114,474L115,473L116,470L117,464L114,458L112,456L110,456L104,456L101,453L98,449L96,448L93,444L92,441L93,436L91,432L91,430L89,429L89,428L88,425L89,420L89,414L91,413L93,413L95,418L95,423L98,425L102,428L105,431L107,431L106,429L104,428L103,424L102,420L99,417L99,415L96,414L97,411L96,408L94,408L92,405L94,404L94,402L97,403L98,401L97,398L93,396L92,397L90,397L90,399L89,401L91,404L90,405L89,407L92,409L89,409L90,412L88,412L87,411L83,408L81,409L78,406L77,403L74,402L72,401L69,403L71,397L72,395L70,391L69,387L67,388L67,385L65,380L62,378L60,377L57,374L52,367L50,365L49,363L44,360L41,354L43,351L43,349L41,344L39,338L38,334L38,329L40,324L39,321L39,318L37,314L37,310L35,308L34,306L29,300L28,298L27,296L24,294L17,288L17,285L17,282L15,279L16,274L18,270L24,258L26,254L27,249L25,247L25,243L27,238L29,228L28,222L26,216L25,212L21,210L22,207L23,202L23,199Z","MT":"M340,-158L372,-158L404,-158L431,-158L457,-158L506,-158L535,-158L567,-158L613,-158L633,-158L673,-158L705,-158L725,-158L766,-158L782,-158L805,-158L805,-127L805,-2L805,8L805,46L789,46L754,46L735,46L732,46L707,46L687,46L685,46L641,46L610,46L609,46L582,46L570,46L566,46L560,46L559,46L547,46L544,46L533,46L533,53L533,65L533,73L531,72L530,70L526,67L527,65L523,60L520,58L519,61L517,61L517,62L515,67L517,69L513,68L508,68L503,71L502,68L499,69L497,70L495,69L492,70L489,70L488,68L485,68L484,69L483,72L482,74L478,72L476,72L471,72L469,71L466,72L464,75L465,78L464,79L462,77L460,76L458,74L457,72L457,70L455,67L456,64L455,62L453,57L448,55L445,57L444,55L440,53L439,49L440,48L441,46L440,43L438,41L435,39L434,36L431,33L431,31L429,29L429,26L427,23L428,21L428,19L425,19L426,15L424,14L423,14L422,11L419,10L418,12L416,14L414,17L411,19L409,18L409,21L406,22L405,21L403,20L401,17L398,17L398,15L397,13L400,12L400,10L397,6L400,3L403,2L404,1L402,-2L403,-4L400,-5L400,-8L401,-10L399,-12L399,-14L402,-14L401,-17L401,-19L402,-20L403,-25L404,-28L403,-31L405,-31L407,-36L406,-39L401,-38L398,-38L395,-38L394,-39L395,-41L394,-42L392,-43L389,-41L389,-44L385,-46L382,-49L383,-52L380,-55L378,-55L377,-57L375,-61L372,-63L371,-64L370,-65L368,-66L369,-67L368,-69L364,-70L360,-72L359,-74L352,-78L351,-78L352,-79L355,-80L354,-81L353,-83L351,-84L352,-85L353,-87L352,-89L352,-92L350,-93L349,-95L347,-98L345,-99L340,-106L339,-118L340,-123L340,-158Z","OR":"M49,-18L51,-19L53,-17L53,-14L55,-13L59,-13L63,-15L65,-15L74,-9L75,-7L77,-3L77,-1L78,2L78,5L79,8L79,10L79,12L84,15L90,16L92,17L94,17L96,18L98,18L101,16L105,16L112,13L114,11L116,10L119,11L123,10L127,9L129,10L132,11L134,10L139,12L140,15L142,15L145,13L150,12L151,13L153,12L159,9L162,8L165,8L167,11L170,10L175,9L178,9L180,7L183,6L187,4L194,3L199,2L201,-0L203,-1L206,-0L215,-2L217,-1L220,-2L224,-4L225,-5L248,-5L283,-5L306,-5L308,-0L310,1L312,4L314,4L316,6L318,6L321,8L321,11L322,13L323,15L320,20L320,22L319,23L315,30L315,31L314,34L313,39L311,41L310,43L308,45L308,47L309,50L308,53L305,56L301,59L299,63L298,67L296,70L294,72L294,75L293,77L295,80L294,82L296,84L299,83L301,85L304,85L304,87L306,88L305,92L303,93L304,94L305,96L305,98L303,101L303,104L302,104L302,107L302,199L278,199L240,199L237,199L217,199L186,199L173,199L146,199L130,199L109,199L102,199L89,199L84,199L68,199L64,199L56,199L46,199L23,199L20,197L18,194L17,191L15,186L14,182L14,177L16,170L15,165L13,162L11,162L10,156L12,152L13,148L14,144L14,142L15,139L16,134L15,132L18,130L19,128L21,122L23,114L25,102L26,92L27,83L28,74L28,71L29,63L29,59L28,58L29,54L31,44L32,39L33,32L32,29L33,24L32,21L33,12L33,9L32,7L33,3L32,-0L31,-2L33,-4L34,-9L31,-17L35,-14L37,-13L36,-15L39,-15L42,-15L44,-16L46,-16L49,-18Z","UT":"M417,199L426,200L462,199L489,199L517,199L533,199L534,221L533,231L533,250L546,250L565,250L572,250L592,250L611,250L611,274L611,276L611,357L611,366L611,389L611,395L611,427L611,429L611,454L589,454L556,454L533,454L519,454L476,454L445,454L417,454L417,416L417,403L417,396L417,382L417,369L417,296L417,289L417,262L417,250L417,199Z","WA":"M88,-74L89,-79L90,-82L92,-80L92,-77L94,-76L92,-75L88,-73ZM83,-135L83,-137L86,-135L84,-134ZM81,-145L85,-140L82,-142L81,-145ZM80,-137L81,-138L83,-136L81,-135L80,-137ZM79,-119L81,-123L82,-125L83,-128L85,-128L86,-125L89,-124L87,-122L85,-122L83,-119L81,-119L84,-119L86,-117L87,-113L88,-108L89,-109L88,-112L92,-109L94,-109L95,-105L94,-102L92,-103L90,-107L87,-105L85,-109L85,-113L85,-115L82,-115L79,-119ZM71,-148L72,-147L77,-145L73,-146L71,-148ZM62,-138L63,-139L66,-139L68,-136L70,-136L68,-139L73,-144L75,-143L80,-141L77,-139L79,-136L78,-133L77,-132L77,-129L75,-129L73,-131L68,-131L64,-133L63,-137L62,-138ZM61,-142L63,-142L66,-140L61,-141ZM301,-158L301,-145L301,-126L301,-114L301,-83L301,-81L301,-26L300,-24L303,-20L304,-18L304,-15L306,-14L303,-9L306,-5L283,-5L248,-5L225,-5L224,-4L220,-2L217,-1L215,-2L206,-0L203,-1L201,-0L199,2L194,3L187,4L183,6L180,7L178,9L175,9L170,10L167,11L165,8L162,8L159,9L153,12L151,13L150,12L145,13L142,15L140,15L139,12L134,10L132,11L129,10L127,9L123,10L119,11L116,10L114,11L112,13L105,16L101,16L98,18L96,18L94,17L92,17L90,16L84,15L79,12L79,10L79,8L78,5L78,2L77,-1L77,-3L75,-7L74,-9L65,-15L63,-15L59,-13L55,-13L53,-14L53,-17L51,-19L49,-18L44,-19L43,-20L42,-20L40,-19L38,-20L36,-17L32,-21L29,-19L29,-25L29,-30L28,-37L30,-35L30,-30L30,-24L33,-24L33,-26L32,-28L32,-30L33,-29L35,-32L33,-38L34,-39L38,-42L35,-43L32,-42L30,-41L27,-43L27,-46L26,-51L28,-49L29,-51L36,-53L35,-55L30,-56L30,-58L26,-58L25,-57L26,-53L24,-52L24,-54L24,-63L22,-71L19,-74L17,-83L17,-87L15,-94L13,-95L12,-98L10,-99L9,-100L7,-101L5,-106L4,-111L4,-113L3,-115L4,-118L5,-124L3,-126L6,-127L11,-125L16,-122L21,-120L27,-118L32,-116L40,-115L43,-116L47,-114L48,-115L49,-114L53,-114L55,-113L60,-113L65,-116L67,-113L68,-111L71,-112L73,-112L75,-110L75,-107L77,-110L75,-111L75,-113L76,-114L79,-114L77,-112L79,-109L80,-112L82,-112L83,-108L81,-108L82,-106L83,-102L85,-101L84,-100L82,-100L82,-99L80,-97L78,-92L76,-92L78,-97L74,-93L74,-91L71,-88L66,-79L64,-74L66,-75L69,-74L70,-75L73,-76L74,-78L68,-75L65,-76L71,-86L75,-89L79,-90L80,-94L82,-97L86,-100L85,-104L88,-102L90,-94L87,-94L88,-92L89,-92L88,-89L89,-86L88,-85L87,-83L89,-82L88,-80L87,-76L86,-73L87,-71L85,-67L82,-71L83,-75L80,-73L80,-70L84,-67L82,-66L82,-64L81,-63L79,-65L76,-69L78,-71L78,-74L75,-70L76,-67L75,-65L77,-65L79,-62L82,-61L84,-63L86,-65L87,-69L88,-71L91,-70L93,-71L92,-72L96,-74L96,-76L95,-79L95,-81L93,-82L92,-86L95,-87L92,-90L94,-93L93,-97L95,-99L97,-105L100,-106L100,-109L98,-110L94,-113L95,-117L93,-119L91,-119L90,-117L91,-114L94,-112L94,-110L90,-114L89,-114L88,-117L88,-120L91,-121L93,-120L94,-122L93,-124L89,-126L87,-128L87,-130L83,-128L82,-130L83,-132L81,-131L81,-133L85,-134L87,-133L88,-131L90,-131L89,-136L91,-136L92,-138L89,-141L88,-144L90,-145L88,-147L85,-147L84,-145L85,-143L82,-145L84,-147L82,-148L81,-150L78,-153L79,-154L79,-155L77,-156L79,-158L105,-158L118,-158L138,-158L158,-158L185,-158L208,-158L231,-158L256,-158L301,-158Z","NE":"M805,148L846,148L866,148L890,148L899,148L928,148L957,148L979,148L1005,148L1020,148L1022,151L1030,154L1035,157L1039,160L1042,160L1043,158L1045,155L1048,156L1052,156L1054,155L1057,156L1059,155L1061,156L1064,155L1067,155L1070,156L1070,158L1073,158L1079,160L1080,162L1082,162L1086,163L1086,165L1089,165L1091,166L1090,168L1093,171L1094,173L1097,173L1100,174L1102,174L1102,176L1101,178L1101,182L1103,183L1105,187L1103,188L1104,190L1107,193L1107,197L1109,198L1110,199L1112,200L1112,203L1113,206L1113,208L1115,209L1114,211L1114,214L1112,215L1114,217L1113,219L1114,220L1114,223L1116,224L1116,222L1117,226L1120,226L1120,231L1119,233L1122,234L1120,236L1121,238L1120,240L1123,241L1122,242L1122,246L1123,248L1123,250L1124,251L1124,254L1125,255L1123,257L1124,261L1122,263L1122,264L1124,267L1126,268L1127,270L1126,274L1129,274L1131,273L1129,275L1129,277L1131,279L1130,280L1132,285L1135,286L1137,288L1138,292L1141,295L1140,299L1144,301L1126,301L1105,301L1069,301L1030,301L1007,301L969,301L933,301L918,301L882,301L882,250L863,250L844,250L805,250L805,148Z","ID":"M306,-5L304,-9L306,-14L304,-15L304,-18L303,-20L300,-24L301,-26L301,-81L301,-83L301,-114L301,-126L301,-145L301,-158L325,-158L340,-158L340,-123L339,-118L340,-106L345,-99L347,-98L348,-95L350,-93L352,-92L352,-89L353,-87L352,-85L351,-84L353,-83L354,-81L356,-81L352,-79L351,-78L352,-78L359,-74L360,-72L364,-70L368,-69L369,-67L368,-66L370,-65L371,-64L372,-63L375,-61L377,-57L378,-55L380,-55L383,-52L382,-49L385,-46L389,-44L388,-41L391,-42L394,-42L395,-41L394,-39L395,-38L398,-38L401,-37L405,-39L407,-36L405,-31L403,-31L404,-28L403,-25L402,-20L401,-19L401,-17L402,-14L399,-14L399,-12L401,-10L400,-8L400,-5L403,-4L402,-2L404,1L403,2L400,3L397,6L400,10L400,12L397,13L398,15L398,17L401,17L403,20L405,21L406,22L409,21L409,18L411,19L414,17L416,14L418,12L418,11L422,11L423,13L424,14L426,15L425,19L428,19L428,21L427,23L428,25L429,29L431,31L431,33L434,36L435,39L438,40L440,43L441,46L440,48L439,49L440,53L444,55L445,57L448,55L453,57L455,62L456,64L455,67L457,70L457,72L458,74L460,76L462,77L464,79L465,78L464,75L466,72L469,71L471,72L476,72L477,73L482,74L483,72L483,69L485,68L488,68L489,70L491,69L495,69L497,70L499,69L502,68L503,71L508,69L511,69L517,69L515,67L517,62L517,61L519,61L520,58L523,60L527,65L526,67L530,70L531,72L533,73L533,79L533,91L533,113L534,162L533,169L533,199L517,199L490,199L462,199L426,200L417,199L401,199L396,199L388,199L379,199L368,199L327,199L302,199L302,107L302,104L303,104L303,101L305,98L305,96L304,94L303,93L305,92L307,89L304,87L304,85L301,85L299,83L296,84L294,82L295,80L293,77L294,75L294,72L296,70L298,67L299,63L301,59L305,57L308,53L309,50L308,47L308,45L310,43L311,41L313,39L314,34L315,31L315,30L319,23L320,22L320,20L323,15L322,13L321,11L321,8L318,6L316,6L314,4L312,4L310,1L308,-0L306,-5Z","NV":"M186,199L217,199L237,199L240,199L278,199L302,199L327,199L368,199L379,199L388,199L396,199L401,199L417,199L417,250L417,262L417,289L417,296L417,369L417,382L417,396L417,403L417,415L417,454L417,473L417,485L417,495L413,504L410,504L407,502L405,498L403,498L399,499L397,497L395,499L393,499L390,501L391,504L390,506L392,510L393,512L392,513L391,515L392,518L392,520L393,521L392,523L393,525L393,529L393,531L393,533L395,535L396,538L397,546L397,549L394,551L395,552L394,556L374,535L364,524L332,491L288,448L270,430L262,422L244,406L231,393L222,385L206,370L190,355L186,352L186,341L186,335L186,315L186,297L186,264L186,199Z"}}
+LEAFLET_CSS = r"""/* required styles */
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	}
+.leaflet-container {
+	overflow: hidden;
+	}
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	-webkit-user-select: none;
+	   -moz-user-select: none;
+	        user-select: none;
+	  -webkit-user-drag: none;
+	}
+/* Prevents IE11 from highlighting tiles in blue */
+.leaflet-tile::selection {
+	background: transparent;
+}
+/* Safari renders non-retina tile on retina better with this, but Chrome is worse */
+.leaflet-safari .leaflet-tile {
+	image-rendering: -webkit-optimize-contrast;
+	}
+/* hack that prevents hw layers "stretching" when loading new tiles */
+.leaflet-safari .leaflet-tile-container {
+	width: 1600px;
+	height: 1600px;
+	-webkit-transform-origin: 0 0;
+	}
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	display: block;
+	}
+/* .leaflet-container svg: reset svg max-width decleration shipped in Joomla! (joomla.org) 3.x */
+/* .leaflet-container img: map is broken in FF if you have max-width: 100% on tiles */
+.leaflet-container .leaflet-overlay-pane svg {
+	max-width: none !important;
+	max-height: none !important;
+	}
+.leaflet-container .leaflet-marker-pane img,
+.leaflet-container .leaflet-shadow-pane img,
+.leaflet-container .leaflet-tile-pane img,
+.leaflet-container img.leaflet-image-layer,
+.leaflet-container .leaflet-tile {
+	max-width: none !important;
+	max-height: none !important;
+	width: auto;
+	padding: 0;
+	}
+
+.leaflet-container img.leaflet-tile {
+	/* See: https://bugs.chromium.org/p/chromium/issues/detail?id=600120 */
+	mix-blend-mode: plus-lighter;
+}
+
+.leaflet-container.leaflet-touch-zoom {
+	-ms-touch-action: pan-x pan-y;
+	touch-action: pan-x pan-y;
+	}
+.leaflet-container.leaflet-touch-drag {
+	-ms-touch-action: pinch-zoom;
+	/* Fallback for FF which doesn't support pinch-zoom */
+	touch-action: none;
+	touch-action: pinch-zoom;
+}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.leaflet-container {
+	-webkit-tap-highlight-color: transparent;
+}
+.leaflet-container a {
+	-webkit-tap-highlight-color: rgba(51, 181, 229, 0.4);
+}
+.leaflet-tile {
+	filter: inherit;
+	visibility: hidden;
+	}
+.leaflet-tile-loaded {
+	visibility: inherit;
+	}
+.leaflet-zoom-box {
+	width: 0;
+	height: 0;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	z-index: 800;
+	}
+/* workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=888319 */
+.leaflet-overlay-pane svg {
+	-moz-user-select: none;
+	}
+
+.leaflet-pane         { z-index: 400; }
+
+.leaflet-tile-pane    { z-index: 200; }
+.leaflet-overlay-pane { z-index: 400; }
+.leaflet-shadow-pane  { z-index: 500; }
+.leaflet-marker-pane  { z-index: 600; }
+.leaflet-tooltip-pane   { z-index: 650; }
+.leaflet-popup-pane   { z-index: 700; }
+
+.leaflet-map-pane canvas { z-index: 100; }
+.leaflet-map-pane svg    { z-index: 200; }
+
+.leaflet-vml-shape {
+	width: 1px;
+	height: 1px;
+	}
+.lvml {
+	behavior: url(#default#VML);
+	display: inline-block;
+	position: absolute;
+	}
+
+
+/* control positioning */
+
+.leaflet-control {
+	position: relative;
+	z-index: 800;
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+.leaflet-top,
+.leaflet-bottom {
+	position: absolute;
+	z-index: 1000;
+	pointer-events: none;
+	}
+.leaflet-top {
+	top: 0;
+	}
+.leaflet-right {
+	right: 0;
+	}
+.leaflet-bottom {
+	bottom: 0;
+	}
+.leaflet-left {
+	left: 0;
+	}
+.leaflet-control {
+	float: left;
+	clear: both;
+	}
+.leaflet-right .leaflet-control {
+	float: right;
+	}
+.leaflet-top .leaflet-control {
+	margin-top: 10px;
+	}
+.leaflet-bottom .leaflet-control {
+	margin-bottom: 10px;
+	}
+.leaflet-left .leaflet-control {
+	margin-left: 10px;
+	}
+.leaflet-right .leaflet-control {
+	margin-right: 10px;
+	}
+
+
+/* zoom and fade animations */
+
+.leaflet-fade-anim .leaflet-popup {
+	opacity: 0;
+	-webkit-transition: opacity 0.2s linear;
+	   -moz-transition: opacity 0.2s linear;
+	        transition: opacity 0.2s linear;
+	}
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup {
+	opacity: 1;
+	}
+.leaflet-zoom-animated {
+	-webkit-transform-origin: 0 0;
+	    -ms-transform-origin: 0 0;
+	        transform-origin: 0 0;
+	}
+svg.leaflet-zoom-animated {
+	will-change: transform;
+}
+
+.leaflet-zoom-anim .leaflet-zoom-animated {
+	-webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1);
+	   -moz-transition:    -moz-transform 0.25s cubic-bezier(0,0,0.25,1);
+	        transition:         transform 0.25s cubic-bezier(0,0,0.25,1);
+	}
+.leaflet-zoom-anim .leaflet-tile,
+.leaflet-pan-anim .leaflet-tile {
+	-webkit-transition: none;
+	   -moz-transition: none;
+	        transition: none;
+	}
+
+.leaflet-zoom-anim .leaflet-zoom-hide {
+	visibility: hidden;
+	}
+
+
+/* cursors */
+
+.leaflet-interactive {
+	cursor: pointer;
+	}
+.leaflet-grab {
+	cursor: -webkit-grab;
+	cursor:    -moz-grab;
+	cursor:         grab;
+	}
+.leaflet-crosshair,
+.leaflet-crosshair .leaflet-interactive {
+	cursor: crosshair;
+	}
+.leaflet-popup-pane,
+.leaflet-control {
+	cursor: auto;
+	}
+.leaflet-dragging .leaflet-grab,
+.leaflet-dragging .leaflet-grab .leaflet-interactive,
+.leaflet-dragging .leaflet-marker-draggable {
+	cursor: move;
+	cursor: -webkit-grabbing;
+	cursor:    -moz-grabbing;
+	cursor:         grabbing;
+	}
+
+/* marker & overlays interactivity */
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-image-layer,
+.leaflet-pane > svg path,
+.leaflet-tile-container {
+	pointer-events: none;
+	}
+
+.leaflet-marker-icon.leaflet-interactive,
+.leaflet-image-layer.leaflet-interactive,
+.leaflet-pane > svg path.leaflet-interactive,
+svg.leaflet-image-layer.leaflet-interactive path {
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+
+/* visual tweaks */
+
+.leaflet-container {
+	background: #ddd;
+	outline-offset: 1px;
+	}
+.leaflet-container a {
+	color: #0078A8;
+	}
+.leaflet-zoom-box {
+	border: 2px dotted #38f;
+	background: rgba(255,255,255,0.5);
+	}
+
+
+/* general typography */
+.leaflet-container {
+	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-size: 0.75rem;
+	line-height: 1.5;
+	}
+
+
+/* general toolbar styles */
+
+.leaflet-bar {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+	border-radius: 4px;
+	}
+.leaflet-bar a {
+	background-color: #fff;
+	border-bottom: 1px solid #ccc;
+	width: 26px;
+	height: 26px;
+	line-height: 26px;
+	display: block;
+	text-align: center;
+	text-decoration: none;
+	color: black;
+	}
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+	display: block;
+	}
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+	background-color: #f4f4f4;
+	}
+.leaflet-bar a:first-child {
+	border-top-left-radius: 4px;
+	border-top-right-radius: 4px;
+	}
+.leaflet-bar a:last-child {
+	border-bottom-left-radius: 4px;
+	border-bottom-right-radius: 4px;
+	border-bottom: none;
+	}
+.leaflet-bar a.leaflet-disabled {
+	cursor: default;
+	background-color: #f4f4f4;
+	color: #bbb;
+	}
+
+.leaflet-touch .leaflet-bar a {
+	width: 30px;
+	height: 30px;
+	line-height: 30px;
+	}
+.leaflet-touch .leaflet-bar a:first-child {
+	border-top-left-radius: 2px;
+	border-top-right-radius: 2px;
+	}
+.leaflet-touch .leaflet-bar a:last-child {
+	border-bottom-left-radius: 2px;
+	border-bottom-right-radius: 2px;
+	}
+
+/* zoom control */
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+	font: bold 18px 'Lucida Console', Monaco, monospace;
+	text-indent: 1px;
+	}
+
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out  {
+	font-size: 22px;
+	}
+
+
+/* layers control */
+
+.leaflet-control-layers {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+	background: #fff;
+	border-radius: 5px;
+	}
+.leaflet-control-layers-toggle {
+	background-image: url(images/layers.png);
+	width: 36px;
+	height: 36px;
+	}
+.leaflet-retina .leaflet-control-layers-toggle {
+	background-image: url(images/layers-2x.png);
+	background-size: 26px 26px;
+	}
+.leaflet-touch .leaflet-control-layers-toggle {
+	width: 44px;
+	height: 44px;
+	}
+.leaflet-control-layers .leaflet-control-layers-list,
+.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+	display: none;
+	}
+.leaflet-control-layers-expanded .leaflet-control-layers-list {
+	display: block;
+	position: relative;
+	}
+.leaflet-control-layers-expanded {
+	padding: 6px 10px 6px 6px;
+	color: #333;
+	background: #fff;
+	}
+.leaflet-control-layers-scrollbar {
+	overflow-y: scroll;
+	overflow-x: hidden;
+	padding-right: 5px;
+	}
+.leaflet-control-layers-selector {
+	margin-top: 2px;
+	position: relative;
+	top: 1px;
+	}
+.leaflet-control-layers label {
+	display: block;
+	font-size: 13px;
+	font-size: 1.08333em;
+	}
+.leaflet-control-layers-separator {
+	height: 0;
+	border-top: 1px solid #ddd;
+	margin: 5px -10px 5px -6px;
+	}
+
+/* Default icon URLs */
+.leaflet-default-icon-path { /* used only in path-guessing heuristic, see L.Icon.Default */
+	background-image: url(images/marker-icon.png);
+	}
+
+
+/* attribution and scale controls */
+
+.leaflet-container .leaflet-control-attribution {
+	background: #fff;
+	background: rgba(255, 255, 255, 0.8);
+	margin: 0;
+	}
+.leaflet-control-attribution,
+.leaflet-control-scale-line {
+	padding: 0 5px;
+	color: #333;
+	line-height: 1.4;
+	}
+.leaflet-control-attribution a {
+	text-decoration: none;
+	}
+.leaflet-control-attribution a:hover,
+.leaflet-control-attribution a:focus {
+	text-decoration: underline;
+	}
+.leaflet-attribution-flag {
+	display: inline !important;
+	vertical-align: baseline !important;
+	width: 1em;
+	height: 0.6669em;
+	}
+.leaflet-left .leaflet-control-scale {
+	margin-left: 5px;
+	}
+.leaflet-bottom .leaflet-control-scale {
+	margin-bottom: 5px;
+	}
+.leaflet-control-scale-line {
+	border: 2px solid #777;
+	border-top: none;
+	line-height: 1.1;
+	padding: 2px 5px 1px;
+	white-space: nowrap;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.8);
+	text-shadow: 1px 1px #fff;
+	}
+.leaflet-control-scale-line:not(:first-child) {
+	border-top: 2px solid #777;
+	border-bottom: none;
+	margin-top: -2px;
+	}
+.leaflet-control-scale-line:not(:first-child):not(:last-child) {
+	border-bottom: 2px solid #777;
+	}
+
+.leaflet-touch .leaflet-control-attribution,
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	box-shadow: none;
+	}
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	border: 2px solid rgba(0,0,0,0.2);
+	background-clip: padding-box;
+	}
+
+
+/* popup */
+
+.leaflet-popup {
+	position: absolute;
+	text-align: center;
+	margin-bottom: 20px;
+	}
+.leaflet-popup-content-wrapper {
+	padding: 1px;
+	text-align: left;
+	border-radius: 12px;
+	}
+.leaflet-popup-content {
+	margin: 13px 24px 13px 20px;
+	line-height: 1.3;
+	font-size: 13px;
+	font-size: 1.08333em;
+	min-height: 1px;
+	}
+.leaflet-popup-content p {
+	margin: 17px 0;
+	margin: 1.3em 0;
+	}
+.leaflet-popup-tip-container {
+	width: 40px;
+	height: 20px;
+	position: absolute;
+	left: 50%;
+	margin-top: -1px;
+	margin-left: -20px;
+	overflow: hidden;
+	pointer-events: none;
+	}
+.leaflet-popup-tip {
+	width: 17px;
+	height: 17px;
+	padding: 1px;
+
+	margin: -10px auto 0;
+	pointer-events: auto;
+
+	-webkit-transform: rotate(45deg);
+	   -moz-transform: rotate(45deg);
+	    -ms-transform: rotate(45deg);
+	        transform: rotate(45deg);
+	}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+	background: white;
+	color: #333;
+	box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+	}
+.leaflet-container a.leaflet-popup-close-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: none;
+	text-align: center;
+	width: 24px;
+	height: 24px;
+	font: 16px/24px Tahoma, Verdana, sans-serif;
+	color: #757575;
+	text-decoration: none;
+	background: transparent;
+	}
+.leaflet-container a.leaflet-popup-close-button:hover,
+.leaflet-container a.leaflet-popup-close-button:focus {
+	color: #585858;
+	}
+.leaflet-popup-scrolled {
+	overflow: auto;
+	}
+
+.leaflet-oldie .leaflet-popup-content-wrapper {
+	-ms-zoom: 1;
+	}
+.leaflet-oldie .leaflet-popup-tip {
+	width: 24px;
+	margin: 0 auto;
+
+	-ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)";
+	filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678);
+	}
+
+.leaflet-oldie .leaflet-control-zoom,
+.leaflet-oldie .leaflet-control-layers,
+.leaflet-oldie .leaflet-popup-content-wrapper,
+.leaflet-oldie .leaflet-popup-tip {
+	border: 1px solid #999;
+	}
+
+
+/* div icon */
+
+.leaflet-div-icon {
+	background: #fff;
+	border: 1px solid #666;
+	}
+
+
+/* Tooltip */
+/* Base styles for the element that has a tooltip */
+.leaflet-tooltip {
+	position: absolute;
+	padding: 6px;
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 3px;
+	color: #222;
+	white-space: nowrap;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	pointer-events: none;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+	}
+.leaflet-tooltip.leaflet-interactive {
+	cursor: pointer;
+	pointer-events: auto;
+	}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	position: absolute;
+	pointer-events: none;
+	border: 6px solid transparent;
+	background: transparent;
+	content: "";
+	}
+
+/* Directions */
+
+.leaflet-tooltip-bottom {
+	margin-top: 6px;
+}
+.leaflet-tooltip-top {
+	margin-top: -6px;
+}
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-top:before {
+	left: 50%;
+	margin-left: -6px;
+	}
+.leaflet-tooltip-top:before {
+	bottom: 0;
+	margin-bottom: -12px;
+	border-top-color: #fff;
+	}
+.leaflet-tooltip-bottom:before {
+	top: 0;
+	margin-top: -12px;
+	margin-left: -6px;
+	border-bottom-color: #fff;
+	}
+.leaflet-tooltip-left {
+	margin-left: -6px;
+}
+.leaflet-tooltip-right {
+	margin-left: 6px;
+}
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	top: 50%;
+	margin-top: -6px;
+	}
+.leaflet-tooltip-left:before {
+	right: 0;
+	margin-right: -12px;
+	border-left-color: #fff;
+	}
+.leaflet-tooltip-right:before {
+	left: 0;
+	margin-left: -12px;
+	border-right-color: #fff;
+	}
+
+/* Printing */
+
+@media print {
+	/* Prevent printers from removing background-images of controls. */
+	.leaflet-control {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+		}
+	}
+"""
 
 
 if __name__ == "__main__":
