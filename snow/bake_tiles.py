@@ -13,7 +13,13 @@ REGIONS = {  # (south, north, west, east)
     "tetons": (43.25, 44.10, -111.45, -110.45),
     "colorado": (39.05, 40.65, -107.20, -105.25),
 }
-WEST = (31.0, 49.5, -125.0, -102.0)  # USGS imagery at z8 across the West
+WEST = (31.0, 49.5, -125.0, -102.0)  # USGS imagery at z8 and z9 across the West
+WIDE = {  # USGS imagery at z10 around each ski region, so zooming in stays sharp past the resorts
+    "utah": (38.8, 42.3, -114.2, -109.3),
+    "sierra": (37.2, 40.2, -121.6, -118.3),
+    "tetons": (42.8, 44.6, -112.3, -109.8),
+    "colorado": (38.6, 40.9, -107.8, -104.8),
+}
 BM = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg"
 USGS = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}"
 
@@ -34,7 +40,9 @@ def tiles(box, z):
 
 def plan(region_max=11):
     jobs = [("bm", BM, t) for z in range(3, 7) for t in tiles(CONUS, z)] + [("bm", BM, t) for t in tiles(CONUS7, 7)]
-    seen = set(tiles(WEST, 8))
+    seen = set(tiles(WEST, 8)) | set(tiles(WEST, 9))
+    for box in WIDE.values():
+        seen |= set(tiles(box, 10))
     jobs += [("usgs", USGS, t) for t in sorted(seen)]
     for box in REGIONS.values():
         for z in range(9, region_max + 1):
