@@ -1,22 +1,22 @@
 {
-  "News Desk": {
-    "time_utc": "2026-11-19T11:14:16+00:00",
-    "logged": 0,
-    "note": "No edge: GTA6 Metacritic 99 already priced (98+ at 0.72); Lutnick ouster talk (Nov 12) priced; Hormuz counts source-ambiguous"
-  },
-  "News Pulse": {
-    "time_utc": "2026-11-19T13:37:57+00:00",
-    "logged": 0,
-    "note": "Nothing new: Anthropic IPO/Trump-Xi-Putin summit/Crimea bridge news but no matching unmoved catalog markets"
-  },
-  "Gas Risk Scan": {
-    "time_utc": "2026-11-18T13:44:14Z",
-    "logged": 0,
-    "note": "national low: RBOB -14c/3d, crude falling on surplus; no outages/storms"
-  },
-  "Research Picks": {
-    "time_utc": "2026-11-18T22:52:30+00:00",
-    "logged": 0,
-    "note": "No picks: NHL starters unconfirmed (BOS/COL/UTA); NJ edge too thin; NBA injury report unavailable"
-  }
+ "News Desk": {
+  "time_utc": "2026-11-19T11:14:16+00:00",
+  "logged": 0,
+  "note": "No edge: GTA6 Metacritic 99 already priced (98+ at 0.72); Lutnick ouster talk (Nov 12) priced; Hormuz counts source-ambiguous"
+ },
+ "News Pulse": {
+  "time_utc": "2026-11-19T13:37:57+00:00",
+  "logged": 0,
+  "note": "Nothing new: Anthropic IPO/Trump-Xi-Putin summit/Crimea bridge news but no matching unmoved catalog markets"
+ },
+ "Gas Risk Scan": {
+  "time_utc": "2026-11-19T13:44:19Z",
+  "logged": 0,
+  "note": "national low: RBOB -8c/3d, -22c/5d; crude soft on surplus; no outages/storms/tax changes"
+ },
+ "Research Picks": {
+  "time_utc": "2026-11-18T22:52:30+00:00",
+  "logged": 0,
+  "note": "No picks: NHL starters unconfirmed (BOS/COL/UTA); NJ edge too thin; NBA injury report unavailable"
+ }
 }
