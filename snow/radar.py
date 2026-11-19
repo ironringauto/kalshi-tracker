@@ -11,9 +11,10 @@ from datetime import datetime, timedelta, timezone
 
 UA = {"User-Agent": "RyanSnowTracker/1.0 (personal snow alerts)"}
 BASE = "https://nomads.ncep.noaa.gov"
-BOX = dict(toplat=56, bottomlat=18, leftlon=-142, rightlon=-56)
+BOX = dict(toplat=62, bottomlat=12, leftlon=-175, rightlon=-45)  # wide: see Pacific storms coming in
 HOURS = list(range(3, 121, 3)) + list(range(126, 241, 6))
 RATE_BINS = [0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8]  # mm per hour
+NBM_BINS = [0.2, 0.35, 0.6, 1, 1.5, 2.5, 4, 8]  # 6-hour averages: skip the faint blend drizzle that covers half the map
 
 
 def ensure_libs():
@@ -54,8 +55,8 @@ def latest_run(now):
 def fetch_hour(run, fh):
     d, h = run.strftime("%Y%m%d"), run.strftime("%H")
     q = (f"dir=%2Fgfs.{d}%2F{h}%2Fatmos&file=gfs.t{h}z.pgrb2.0p25.f{fh:03d}"
-         "&var_APCP=on&var_CSNOW=on&var_CRAIN=on&var_CFRZR=on&var_CICEP=on&var_TMP=on"
-         "&lev_surface=on&lev_2_m_above_ground=on&subregion="
+         "&var_APCP=on&var_CSNOW=on&var_CRAIN=on&var_CFRZR=on&var_CICEP=on&var_TMP=on&var_UGRD=on&var_VGRD=on"
+         "&lev_surface=on&lev_2_m_above_ground=on&lev_10_m_above_ground=on&subregion="
          + "".join(f"&{k}={v}" for k, v in BOX.items()))
     return http(f"{BASE}/cgi-bin/filter_gfs_0p25.pl?{q}")
 
@@ -79,6 +80,10 @@ def decode(blob):
                 apcp.append((int(m.startStep), int(m.endStep), np.asarray(v, dtype="float32")))
             elif sn in ("csnow", "crain", "cfrzr", "cicep"):
                 out[sn] = np.asarray(v, dtype="float32")
+            elif sn in ("10u", "u") and m.typeOfLevel == "heightAboveGround":
+                out["u10"] = np.asarray(v, dtype="float32")
+            elif sn in ("10v", "v") and m.typeOfLevel == "heightAboveGround":
+                out["v10"] = np.asarray(v, dtype="float32")
             elif sn in ("2t", "t") and m.typeOfLevel == "heightAboveGround":
                 out["t2"] = np.asarray(v, dtype="float32") - 273.15
         lat, lon = m.latlons()
@@ -111,7 +116,7 @@ def build(out_dir, now=None, log=print):
     frames = [decode(b) for b in blobs]
     ny, nx = frames[0]["t2"].shape
     cum_run = {0: np.zeros((ny, nx), "float32")}  # run-total precip (mm) by forecast hour
-    radar, snowacc, times = [], [], []
+    radar, snowacc, times, wind = [], [], [], []
     acc = np.zeros((ny, nx), "float32")
     started = False
     prev_h = 0
@@ -154,15 +159,27 @@ def build(out_dir, now=None, log=print):
         radar.append(np.where(lvl > 0, kind * 16 + lvl, 0).astype("uint8"))
         from scipy.ndimage import gaussian_filter as _gf
         snowacc.append(np.clip(np.round(_gf(acc, 0.7) * 2), 0, 255).astype("uint8"))
+        u, v = fr.get("u10"), fr.get("v10")
+        if u is None or v is None:
+            u = v = np.zeros((ny, nx), "float32")
+        # wind at half resolution (0.5 deg): m/s * 2 + 128 in red (east-west) and green (north-south)
+        wind.append(np.dstack([np.clip(np.round(u[::2, ::2] * 2 + 128), 0, 255),
+                               np.clip(np.round(v[::2, ::2] * 2 + 128), 0, 255),
+                               np.zeros(u[::2, ::2].shape)]).astype("uint8"))
         times.append(valid.isoformat())
     os.makedirs(out_dir, exist_ok=True)
     Image.fromarray(np.vstack(radar), "L").save(os.path.join(out_dir, "radar.png"), optimize=True)
     Image.fromarray(np.vstack(snowacc), "L").save(os.path.join(out_dir, "snowacc.png"), optimize=True)
+    Image.fromarray(np.vstack(wind), "RGB").save(os.path.join(out_dir, "wind.png"), optimize=True)
     n, s_, w, e = frames[0]["grid"]
     if w > 180:
         w, e = w - 360, e - 360
+    wny, wnx = wind[0].shape[:2]
+    dlat, dlon = (n - s_) / (ny - 1), (e - w) / (nx - 1)
     return {"run": run.isoformat(), "times": times, "nx": nx, "ny": ny,
-            "north": n, "south": s_, "west": w, "east": e}
+            "north": n, "south": s_, "west": w, "east": e,
+            "wind": {"file": "wind.png", "nx": wnx, "ny": wny, "north": n, "south": n - dlat * 2 * (wny - 1),
+                     "west": w, "east": w + dlon * 2 * (wnx - 1)}}
 
 
 # ---------- HRRR: 3 km model, next 48 hours, whole CONUS (future radar only) ----------
@@ -379,7 +396,7 @@ def build_nbm(out_dir, now=None, log=print):
             p["cum"] = p["cum"] + np.clip(sn_in, 0, None)
             rate = q / 6.0
             lvl = np.zeros(q.shape, "uint8")
-            for i, b in enumerate(RATE_BINS):
+            for i, b in enumerate(NBM_BINS):
                 lvl[rate >= b] = i + 1
             ratio = np.where(q > 0.05, (sn_in * 25.4) / np.maximum(q, 0.05), 0)
             kind = np.where(ratio >= 6, 2, np.where(ratio >= 1.5, 3, 1))

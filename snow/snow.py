@@ -980,7 +980,7 @@ details.trip[open]>summary::before{content:"▾ "}
 <div class="provo">{{provo}}</div>
 
 <div class="mapcard">
-  <div class="seg" id="seg"><button type="button" data-l="radar" class="on">Future radar</button><button type="button" data-l="snow">Snow total</button></div>
+  <div class="seg" id="seg"><button type="button" data-l="radar" class="on">Future radar</button><button type="button" data-l="snow">Snow total</button><button type="button" data-l="wind">Wind</button></div>
   <div id="map"></div>
   <div class="dock">
     <div class="ctrl"><button type="button" class="stp" id="prev" aria-label="Back">◀</button><button type="button" id="play" aria-label="Play">▶</button><button type="button" class="stp" id="next" aria-label="Forward">▶</button><div class="tbar"><div id="tmain">Loading…</div><div id="tsub">&nbsp;</div></div></div>
@@ -1025,10 +1025,10 @@ details.trip[open]>summary::before{content:"▾ "}
   var M=JSON.parse(document.getElementById("mdata").textContent),R=M.radar;
   var $=function(id){return document.getElementById(id)};
   if(typeof L==="undefined"){$("tmain").textContent="Map could not load";return}
-  var map=L.map("map",{attributionControl:false,zoomSnap:0.5,maxZoom:12,scrollWheelZoom:false,minZoom:4,maxBounds:[[17,-141],[56,-57]],maxBoundsViscosity:1});map.on("click",function(){map.scrollWheelZoom.enable()});map.on("mouseout",function(){map.scrollWheelZoom.disable()});
+  var map=L.map("map",{attributionControl:false,zoomSnap:0.5,maxZoom:12,scrollWheelZoom:false,minZoom:3,maxBounds:[[0,-180],[75,-25]],maxBoundsViscosity:1});map.on("click",function(){map.scrollWheelZoom.enable()});map.on("mouseout",function(){map.scrollWheelZoom.disable()});
   map.createPane("land").style.zIndex=200;map.createPane("wx").style.zIndex=300;
   var lp=map.createPane("lines");lp.style.zIndex=350;lp.style.pointerEvents="none";
-  var VIEWS={"West":[[35.6,-124.4],[45.6,-104.2]],"Utah":[[36.9,-114.2],[42.1,-108.9]],"Wasatch":[[40.25,-112.05],[41.3,-111.35]],"Tahoe":[[38.4,-120.9],[39.7,-119.5]],"Mammoth":[[37.2,-119.5],[38.0,-118.5]],"Tetons":[[43.2,-111.5],[44.2,-110.3]],"Colorado":[[38.9,-107.4],[40.7,-105.2]],"USA":[[24.5,-125],[49.5,-66.5]]};
+  var VIEWS={"Pacific":[[18,-170],[60,-100]],"West":[[35.6,-124.4],[45.6,-104.2]],"Utah":[[36.9,-114.2],[42.1,-108.9]],"Wasatch":[[40.25,-112.05],[41.3,-111.35]],"Tahoe":[[38.4,-120.9],[39.7,-119.5]],"Mammoth":[[37.2,-119.5],[38.0,-118.5]],"Tetons":[[43.2,-111.5],[44.2,-110.3]],"Colorado":[[38.9,-107.4],[40.7,-105.2]],"USA":[[24.5,-125],[49.5,-66.5]]};
   map.fitBounds(VIEWS.West);
   var TI=M.tiles||{},blank="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
   function avail(list){var o={};(list||[]).forEach(function(k){o[k]=1});return o}
@@ -1132,6 +1132,9 @@ details.trip[open]>summary::before{content:"▾ "}
     var x=cv.getContext("2d"),img=x.createImageData(W,Hh),o=img.data,lonC=new Float64Array(W),latR=new Float64Array(Hh);
     for(var i=0;i<W;i++)lonC[i]=map.containerPointToLatLng([(i+.5)*S2,0]).lng;for(var j=0;j<Hh;j++)latR[j]=map.containerPointToLatLng([0,(j+.5)*S2]).lat;
     var hs=hiSrc(fr),gA=hs?hs.ds.map(function(d){return getv(d,hs.f0,layer)}):null,gB=hs&&layer=="snow"?hs.ds.map(function(d){return getv(d,hs.f1,"snow")}):null,hw2=hs?hs.w:0;
+    if(layer=="wind"){drawWind(fr,x,img,o,W,Hh,lonC,latR);return}
+    // zoomed out you see the whole Pacific, where only the global model exists; zoomed in, only sharp data is drawn
+    var zf=Math.max(0,Math.min(1,5.75-map.getZoom()));
     var gvG=fr.g>=0?getv(G,fr.g,layer):null,P=layer=="snow"?PS:PR;
     function col(v,P2){if(!v)return null;var c=v<0?OUT:P2[v];return[c[0],c[1],c[2],c[3]]}
     for(var j=0;j<Hh;j++){var lat=latR[j];
@@ -1140,19 +1143,50 @@ details.trip[open]>summary::before{content:"▾ "}
           if(layer=="radar")hv=samp(hd,gA[q],"radar",lat,lon);else{var v0=gA[q]?samp(hd,gA[q],"snow",lat,lon):0,v1=gB[q]?samp(hd,gB[q],"snow",lat,lon):0;hv=(v0===null||v1===null)?null:Math.round(v0*(1-hw2)+v1*hw2)}
           if(hv!==null){hit=true;hc=col(hv,P);if(hd.edge){var ei=Math.round((hm.north-lat)/hd.dlat)*hm.nx+Math.round((lon-hm.west)/hd.dlon);hw=(hd.edge[ei]||0)/255}}break}}}
         var c=hc;
-        if(!hit||hw<0.999){var gc=(gvG&&!hs)?col(samp(G,gvG,layer,lat,lon),P):null;
+        if(!hit||hw<0.999){var gc=(gvG&&(!hs||zf>0))?col(samp(G,gvG,layer,lat,lon),P):null;if(gc&&hs)gc[3]*=zf;
           if(!hit)c=gc;else{var a1=hc?hc[3]*hw:0,a2=gc?gc[3]*(1-hw):0,at=a1+a2;c=at>0?[((hc?hc[0]*a1:0)+(gc?gc[0]*a2:0))/at,((hc?hc[1]*a1:0)+(gc?gc[1]*a2:0))/at,((hc?hc[2]*a1:0)+(gc?gc[2]*a2:0))/at,at]:null}}
         if(!c){o[d+3]=0;continue}o[d]=c[0];o[d+1]=c[1];o[d+2]=c[2];o[d+3]=c[3]}}
     x.putImageData(img,0,0)}
   map.on("move resize",redraw);map.on("zoomstart",function(){cv.style.display="none"});map.on("zoomend",redraw);
   function fmt(t){return t.toLocaleString([], {weekday:"short",hour:"numeric"})}
   function rel(t){var hh=Math.round((t.getTime()-Date.now())/3600000);if(Math.abs(hh)<=1)return"right now";if(hh<0)return-hh+" hrs ago";if(hh<48)return"in "+hh+" hrs";return"in "+Math.round(hh/24)+" days"}
-  function legend(){var g=$("legend");if(layer=="radar"){function sw(p){return'<span class="sw">'+p.map(function(c){return'<i style="background:'+c+'"></i>'}).join("")+"</span>"}
-      g.innerHTML="<span>Light → heavy:</span><span>Snow"+sw(SNOW)+"</span><span>Mix/ice"+sw(MIX)+"</span><span>Rain"+sw(RAIN)+"</span><span class=\"mut\">Colors fade out where the U.S. high-res models end (far offshore, Canada, Mexico).</span>"}
+  // ---- wind: GFS 10 m wind, color = speed, moving streaks = direction (like a weather app wind map) ----
+  var WM=R&&R.wind?R.wind:null,WD=null;
+  if(WM){WM.dlat=(WM.north-WM.south)/(WM.ny-1);WM.dlon=(WM.east-WM.west)/(WM.nx-1)}
+  function windAt(f,lat,lon){if(!WD||f<0)return null;var sx=(lon-WM.west)/WM.dlon,sy=(WM.north-lat)/WM.dlat;if(sx<0||sy<0||sx>WM.nx-1||sy>WM.ny-1)return null;
+    var i=Math.floor(sx),j=Math.floor(sy),fx=sx-i,fy=sy-j,i1=Math.min(i+1,WM.nx-1),j1=Math.min(j+1,WM.ny-1),b=f*WM.nx*WM.ny,n=WM.nx;
+    function g(a,ii,jj){return(a[b+jj*n+ii]-128)/2}
+    var u=(g(WD.u,i,j)*(1-fx)+g(WD.u,i1,j)*fx)*(1-fy)+(g(WD.u,i,j1)*(1-fx)+g(WD.u,i1,j1)*fx)*fy,
+        v=(g(WD.v,i,j)*(1-fx)+g(WD.v,i1,j)*fx)*(1-fy)+(g(WD.v,i,j1)*(1-fx)+g(WD.v,i1,j1)*fx)*fy;return[u,v]}
+  var WSTOP=[[0,[60,90,170]],[5,[60,140,200]],[10,[70,180,170]],[15,[90,200,110]],[20,[200,210,70]],[28,[240,160,50]],[36,[230,80,60]],[45,[200,50,140]],[60,[150,60,200]]];
+  function wcol(mph){for(var k=1;k<WSTOP.length;k++){if(mph<=WSTOP[k][0]){var a=WSTOP[k-1],b=WSTOP[k],t=(mph-a[0])/(b[0]-a[0]);return[a[1][0]+(b[1][0]-a[1][0])*t,a[1][1]+(b[1][1]-a[1][1])*t,a[1][2]+(b[1][2]-a[1][2])*t]}}return WSTOP[WSTOP.length-1][1]}
+  function drawWind(fr,x,img,o,W,Hh,lonC,latR){
+    for(var j=0;j<Hh;j++){for(var i=0;i<W;i++){var d=(j*W+i)*4,w=windAt(fr.g,latR[j],lonC[i]);if(!w){o[d+3]=0;continue}
+      var mph=Math.sqrt(w[0]*w[0]+w[1]*w[1])*2.237,c=wcol(mph);o[d]=c[0];o[d+1]=c[1];o[d+2]=c[2];o[d+3]=150}}
+    x.putImageData(img,0,0);startParticles()}
+  var pc=document.createElement("canvas");pc.style.position="absolute";pc.style.pointerEvents="none";map.getPane("wx").appendChild(pc);
+  var P_=[],panim=0,moving=false;
+  function resetParticles(){var sz=map.getSize();pc.width=sz.x;pc.height=sz.y;pc.style.width=sz.x+"px";pc.style.height=sz.y+"px";L.DomUtil.setPosition(pc,map.containerPointToLayerPoint([0,0]));
+    var n=Math.min(3500,Math.round(sz.x*sz.y/260));P_=[];for(var k=0;k<n;k++)P_.push({x:Math.random()*sz.x,y:Math.random()*sz.y,a:Math.random()*80})}
+  function startParticles(){if(layer!=="wind"||!WD){stopParticles();return}pc.style.display="";if(!P_.length)resetParticles();if(!panim)panim=requestAnimationFrame(stepParticles)}
+  function stopParticles(){if(panim)cancelAnimationFrame(panim);panim=0;var c=pc.getContext("2d");c.clearRect(0,0,pc.width,pc.height);pc.style.display="none"}
+  function stepParticles(){panim=0;if(layer!=="wind"||moving||document.hidden){if(layer==="wind"&&!moving)panim=requestAnimationFrame(stepParticles);return}
+    var c=pc.getContext("2d"),sz=map.getSize(),fr=F[frame];c.globalCompositeOperation="destination-in";c.fillStyle="rgba(0,0,0,0.92)";c.fillRect(0,0,sz.x,sz.y);c.globalCompositeOperation="source-over";
+    c.strokeStyle="rgba(255,255,255,0.85)";c.lineWidth=1.1;c.beginPath();
+    for(var k=0;k<P_.length;k++){var p=P_[k];var ll=map.containerPointToLatLng([p.x,p.y]),w=windAt(fr.g,ll.lat,ll.lng);
+      if(!w||p.a>90){p.x=Math.random()*sz.x;p.y=Math.random()*sz.y;p.a=0;continue}
+      var nx=p.x+w[0]*0.22,ny=p.y-w[1]*0.22/Math.max(0.2,Math.cos(ll.lat*Math.PI/180))*Math.cos(ll.lat*Math.PI/180);
+      c.moveTo(p.x,p.y);c.lineTo(nx,ny);p.x=nx;p.y=ny;p.a++;if(p.x<0||p.y<0||p.x>sz.x||p.y>sz.y)p.a=999}
+    c.stroke();panim=requestAnimationFrame(stepParticles)}
+  map.on("movestart zoomstart",function(){moving=true;if(layer==="wind"){var c=pc.getContext("2d");c.clearRect(0,0,pc.width,pc.height)}});
+  map.on("moveend zoomend resize",function(){moving=false;if(layer==="wind"){resetParticles();startParticles()}});
+  function legend(){var g=$("legend");if(layer=="wind"){g.innerHTML="<span>Wind at ground level (mph):</span>"+[[5,"5"],[10,"10"],[20,"20"],[28,"30"],[36,"40"],[45,"50"],[60,"60+"]].map(function(q){var c=wcol(q[0]);return'<span><i style="display:inline-block;width:12px;height:10px;background:rgb('+c.map(Math.round).join(",")+');margin-right:3px"></i>'+q[1]+"</span>"}).join("")+'<span class="mut">The moving streaks show which way the wind blows. Zoom out (or tap Pacific) to watch storms come in off the ocean.</span>';return}
+    if(layer=="radar"){function sw(p){return'<span class="sw">'+p.map(function(c){return'<i style="background:'+c+'"></i>'}).join("")+"</span>"}
+      g.innerHTML="<span>Light → heavy:</span><span>Snow"+sw(SNOW)+"</span><span>Mix/ice"+sw(MIX)+"</span><span>Rain"+sw(RAIN)+"</span><span class=\"mut\">Zoomed out, the Pacific and Canada use a coarser global model so you can see storms coming; zoomed in, only the sharp U.S. models are shown.</span>"}
     else{g.innerHTML="<span>Snow piled up by the time shown:</span>"+SB.map(function(b,i){return'<span><i style="display:inline-block;width:12px;height:10px;background:'+SC[i]+';margin-right:3px"></i>'+b+'"</span>'}).join("")}}
   function show(f){frame=f;var fr=F[f];if(!fr)return;var t=fr.t;
     $("tmain").textContent=fmt(t);
-    var hs=hiSrc(fr),src=hs?hs.name:G?(NB&&!NOK?"GFS 25 km (sharp layer loading…)":"GFS 25 km model"):"blended resort forecast";
+    var hs=layer=="wind"?null:hiSrc(fr),src=layer=="wind"?"GFS wind, 10 m above ground":hs?hs.name:G?(NB&&!NOK?"GFS 25 km (sharp layer loading…)":"GFS 25 km model"):"blended resort forecast";
     $("tsub").textContent=rel(t)+" · "+src;
     draw();
     labels()}
@@ -1164,8 +1198,10 @@ details.trip[open]>summary::before{content:"▾ "}
   sl.addEventListener("input",function(){stop();show(+sl.value)});
   document.querySelectorAll("#seg button").forEach(function(b){b.onclick=function(){layer=b.getAttribute("data-l");
     if(layer=="snow"&&frame===start){var tgt=Date.now()+5*86400000,bi=start;for(var q=start;q<F.length;q++){if(F[q].t.getTime()<=tgt)bi=q}frame=bi;sl.value=bi}
-    document.querySelectorAll("#seg button").forEach(function(x){x.classList.toggle("on",x===b)});legend();show(frame)}});
-  map.on("click",function(e){if(!G||!G.radar)return;var fr=F[frame],la=e.latlng.lat,lo=e.latlng.lng,kinds={1:"Rain",2:"Snow",3:"Mixed or icy"},ints=["","very light","very light","light","light","moderate","moderate","heavy","very heavy"],vr=0,srcn="GFS model, ~25 km grid";
+    document.querySelectorAll("#seg button").forEach(function(x){x.classList.toggle("on",x===b)});if(layer!=="wind")stopParticles();else resetParticles();legend();show(frame)}});
+  map.on("click",function(e){if(layer=="wind"){var fw=F[frame],ww=windAt(fw.g,e.latlng.lat,e.latlng.lng);if(ww){var mph=Math.round(Math.sqrt(ww[0]*ww[0]+ww[1]*ww[1])*2.237),dir=(Math.atan2(-ww[0],-ww[1])*180/Math.PI+360)%360,names=["N","NE","E","SE","S","SW","W","NW"];
+      L.popup().setLatLng(e.latlng).setContent("<b>"+fmt(fw.t)+"</b><br>Wind "+mph+" mph from the "+names[Math.round(dir/45)%8]+'<br><span style="color:#888">GFS model, 10 m above ground</span>').openOn(map)}return}
+    if(!G||!G.radar)return;var fr=F[frame],la=e.latlng.lat,lo=e.latlng.lng,kinds={1:"Rain",2:"Snow",3:"Mixed or icy"},ints=["","very light","very light","light","light","moderate","moderate","heavy","very heavy"],vr=0,srcn="GFS model, ~25 km grid";
     function pick(ds,f,layer){var i=Math.round((lo-ds.m.west)/ds.dlon),j=Math.round((ds.m.north-la)/ds.dlat);if(i<0||j<0||i>=ds.m.nx||j>=ds.m.ny)return null;var gv=getv(ds,f,layer);return gv?gv.a[gv.base+j*ds.m.nx+i]:null}
     vr=null;if(fr.h>=0&&HD&&HD.chunks.length){for(var q=0;q<HDs.length;q++){var hv=pick(HDs[q],fr.h,"radar");if(hv!==null&&hv!==255){vr=hv;srcn="HRRR model, ~3 km";break}}}
     if(vr===null&&fr.nr>=0&&NOK){for(var q=0;q<NDs.length;q++){var nv=pick(NDs[q],fr.nr,"radar");if(nv!==null&&nv!==255){vr=nv;srcn="National Blend, ~2.5 km, 6-hr average";break}}}
@@ -1175,7 +1211,9 @@ details.trip[open]>summary::before{content:"▾ "}
     var k=vr>>4,l=vr&15,nowtxt=vr&&l?kinds[k]+", "+ints[Math.min(l,8)]:"Nothing falling";
     L.popup().setLatLng(e.latlng).setContent("<b>"+fmt(fr.t)+"</b><br>"+nowtxt+'<br><span style="color:#888">'+srcn+"</span><br>Snow piled up from now ("+ssrc+"): "+(vs<0.5?"under 0.5":Math.round(vs*2)/2)+'"').openOn(map)});
   if(!G){$("seg").style.display="none";$("legend").textContent="Model map unavailable tonight; resort numbers still update."}
-  legend();show(start);
+  pc.style.display="none";legend();show(start);
+  if(WM){var wim=new Image();wim.onload=function(){try{var c=document.createElement("canvas");c.width=wim.naturalWidth;c.height=wim.naturalHeight;var cx=c.getContext("2d",{willReadFrequently:true});cx.drawImage(wim,0,0);var d=cx.getImageData(0,0,c.width,c.height).data,n=d.length/4,u=new Uint8Array(n),v=new Uint8Array(n);for(var i=0;i<n;i++){u[i]=d[i*4];v[i]=d[i*4+1]}WD={u:u,v:v};if(layer=="wind")show(frame)}catch(e){}};wim.src=WM.file}
+  else{var wb=document.querySelector('#seg button[data-l="wind"]');if(wb)wb.style.display="none"}
   if(G){var jobs=[sprite("radar.png"),sprite("snowacc.png")];HDs.forEach(function(d){d.m.chunks.forEach(function(c){jobs.push(sprite(c.file))})});HDs.forEach(function(d){if(d.m.edge)sprite(d.m.edge).then(function(e){d.edge=e;redraw()})});
     Promise.all(jobs).then(function(a){G.radar=a[0];G.snow=a[1];var pos=2;HDs.forEach(function(d){d.chunks=a.slice(pos,pos+d.m.chunks.length);pos+=d.m.chunks.length;if(d.chunks.some(function(x){return!x}))d.chunks=[]});if(!G.radar){$("legend").textContent="Model map could not load."}show(frame);
       if(NDs.length){var nj=[];NDs.forEach(function(d){Object.keys(d.m.layers).forEach(function(k){d.m.layers[k].forEach(function(c,ci){nj.push(sprite(c.file).then(function(a){d.L[k][ci]=a}))})});if(d.m.edge)nj.push(sprite(d.m.edge).then(function(e){d.edge=e}))});
