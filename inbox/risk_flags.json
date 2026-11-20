@@ -1,24 +1,6 @@
-{
- "date": "2026-11-19",
- "national_risk": "low",
- "national_reason": "",
- "states": {},
- "sources": [
-  {
-   "title": "Fed's rate hike push may be a mistake (gas prices slide)",
-   "url": "https://www.coindesk.com/markets/2026/11/19/fed-s-push-for-more-rate-hikes-leans-on-backward-looking-data-as-gas-prices-slide-analysts-argue",
-   "date": "2026-11-19"
-  },
-  {
-   "title": "Brent falls 0.7% to 91.8, WTI slips to 85.2 as surplus looms",
-   "url": "https://hdfcsky.com/news/brent-crude-oil-price-today-november-17-2026-brent-falls-0-7percent-to-91-8-wti-slips-to-85-2-as-surplus-looms",
-   "date": "2026-11-17"
-  },
-  {
-   "title": "Gas prices drop across the region",
-   "url": "https://www.wcax.com/2026/11/16/gas-prices-drop-across-region/?outputType=amp",
-   "date": "2026-11-16"
-  }
- ],
- "made_utc": "2026-11-19T13:44:16Z"
-}
+{"date": "2026-11-20", "national_risk": "low", "national_reason": "", "states": {}, "sources": [
+{"title": "Oil Prices Today, November 20, 2026: Brent Crude Rises 0.3% to $92.2 But Stays On Course For Weekly Decline", "url": "https://hdfcsky.com/news/brent-crude-oil-price-today-november-20-2026-brent-crude-rises-0-3percent-to-92-2-but-stays-on-course-for-weekly-decline", "date": "2026-11-20"},
+{"title": "Oil price today: Brent pares losses after sliding to $90.06 amid Hormuz tensions", "url": "https://invezz.com/news/2026/11/20/oil-price-today-brent-pares-losses-hormuz-tensions/", "date": "2026-11-20"},
+{"title": "Poland Says Two Russian Missiles, Drone Crashed on Its Soil (watch item; no sustained crude spike seen)", "url": "https://www.bloomberg.com/news/articles/2026-11-20/poland-says-two-russian-missiles-drone-crashed-on-its-soil", "date": "2026-11-20"},
+{"title": "Oil prices fall as higher US crude stocks temper supply risks", "url": "https://boereport.com/2026/11/18/oil-prices-fall-as-higher-us-crude-stocks-temper-supply-risks/amp/", "date": "2026-11-18"}
+], "made_utc": "2026-11-20T13:44:46Z"}
