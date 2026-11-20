@@ -1,22 +1,22 @@
 {
-  "News Desk": {
-    "time_utc": "2026-11-20T11:14:12+00:00",
-    "logged": 0,
-    "note": "No ideas: catalog mostly NFL/Thanksgiving rain; GTA6 99 Metacritic, PCE estimates and claims already priced"
-  },
-  "News Pulse": {
-    "time_utc": "2026-11-20T13:38:09+00:00",
-    "logged": 0,
-    "note": "Russian missile hits Poland; WH cyber chief removed; no catalog market directly affected"
-  },
-  "Gas Risk Scan": {
-    "time_utc": "2026-11-19T13:44:19Z",
-    "logged": 0,
-    "note": "national low: RBOB -8c/3d, -22c/5d; crude soft on surplus; no outages/storms/tax changes"
-  },
-  "Research Picks": {
-    "time_utc": "2026-11-19T22:52:34+00:00",
-    "logged": 0,
-    "note": "No picks: NHL goalies unconfirmed; NBA models conflict (Edwards status unclear); TNF HOU -800 no edge"
-  }
+ "News Desk": {
+  "time_utc": "2026-11-20T11:14:12+00:00",
+  "logged": 0,
+  "note": "No ideas: catalog mostly NFL/Thanksgiving rain; GTA6 99 Metacritic, PCE estimates and claims already priced"
+ },
+ "News Pulse": {
+  "time_utc": "2026-11-20T13:38:09+00:00",
+  "logged": 0,
+  "note": "Russian missile hits Poland; WH cyber chief removed; no catalog market directly affected"
+ },
+ "Gas Risk Scan": {
+  "time_utc": "2026-11-20T13:44:48+00:00",
+  "logged": 0,
+  "note": "national low: RBOB -6c/3 sessions, Brent ~$91 weekly decline; Poland missile news watch only"
+ },
+ "Research Picks": {
+  "time_utc": "2026-11-19T22:52:34+00:00",
+  "logged": 0,
+  "note": "No picks: NHL goalies unconfirmed; NBA models conflict (Edwards status unclear); TNF HOU -800 no edge"
+ }
 }
