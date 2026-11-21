@@ -1,22 +1,22 @@
 {
- "News Desk": {
-  "time_utc": "2026-11-21T11:14:38+00:00",
-  "logged": 0,
-  "note": "No ideas: Park City delay/storm, NZ-IND Test, GTA6 99 Metacritic, Lutnick, crypto/stock selloff all look priced in"
- },
- "News Pulse": {
-  "time_utc": "2026-11-21T13:37:39+00:00",
-  "logged": 0,
-  "note": "Quiet Sat morning; BTC rebound already priced (movers); no unpriced breaking news"
- },
- "Gas Risk Scan": {
-  "time_utc": "2026-11-21T13:44:43Z",
-  "logged": 0,
-  "note": "national low: RBOB -12c/5d, WTI at 3-month low, no US outages"
- },
- "Research Picks": {
-  "time_utc": "2026-11-20T22:58:23+00:00",
-  "logged": 1,
-  "note": "Detroit ML vs Toronto; skipped ATL/CLE/ORL (no model edge) and HOU-DEN (Sengun questionable); no NHL found"
- }
+  "News Desk": {
+    "time_utc": "2026-11-21T11:14:38+00:00",
+    "logged": 0,
+    "note": "No ideas: Park City delay/storm, NZ-IND Test, GTA6 99 Metacritic, Lutnick, crypto/stock selloff all look priced in"
+  },
+  "News Pulse": {
+    "time_utc": "2026-11-21T14:38:09+00:00",
+    "logged": 0,
+    "note": "Quiet Saturday morning; no market-moving breaking news in last 2h"
+  },
+  "Gas Risk Scan": {
+    "time_utc": "2026-11-21T13:44:43Z",
+    "logged": 0,
+    "note": "national low: RBOB -12c/5d, WTI at 3-month low, no US outages"
+  },
+  "Research Picks": {
+    "time_utc": "2026-11-20T22:58:23+00:00",
+    "logged": 1,
+    "note": "Detroit ML vs Toronto; skipped ATL/CLE/ORL (no model edge) and HOU-DEN (Sengun questionable); no NHL found"
+  }
 }
