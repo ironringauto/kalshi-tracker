@@ -1,6 +1,24 @@
-{"date": "2026-11-20", "national_risk": "low", "national_reason": "", "states": {}, "sources": [
-{"title": "Oil Prices Today, November 20, 2026: Brent Crude Rises 0.3% to $92.2 But Stays On Course For Weekly Decline", "url": "https://hdfcsky.com/news/brent-crude-oil-price-today-november-20-2026-brent-crude-rises-0-3percent-to-92-2-but-stays-on-course-for-weekly-decline", "date": "2026-11-20"},
-{"title": "Oil price today: Brent pares losses after sliding to $90.06 amid Hormuz tensions", "url": "https://invezz.com/news/2026/11/20/oil-price-today-brent-pares-losses-hormuz-tensions/", "date": "2026-11-20"},
-{"title": "Poland Says Two Russian Missiles, Drone Crashed on Its Soil (watch item; no sustained crude spike seen)", "url": "https://www.bloomberg.com/news/articles/2026-11-20/poland-says-two-russian-missiles-drone-crashed-on-its-soil", "date": "2026-11-20"},
-{"title": "Oil prices fall as higher US crude stocks temper supply risks", "url": "https://boereport.com/2026/11/18/oil-prices-fall-as-higher-us-crude-stocks-temper-supply-risks/amp/", "date": "2026-11-18"}
-], "made_utc": "2026-11-20T13:44:46Z"}
+{
+ "date": "2026-11-21",
+ "national_risk": "low",
+ "national_reason": "",
+ "states": {},
+ "sources": [
+  {
+   "title": "Oil prices end largely unchanged as Brent edges higher and US crude slips (WTI $83.21, lowest close since Aug 26)",
+   "url": "https://qna.org.qa/en/News-Area/News/2026-11/20/oil-prices-end-largely-unchanged-as-brent-edges-higher-and-us-crude-slips",
+   "date": "2026-11-20"
+  },
+  {
+   "title": "Crude wrap: WTI settles $2.75 lower at $83.26; EIA crude and gasoline builds",
+   "url": "https://www.newsquawk.com/headlines/crude-wrap-wti-f7-settles-usd-275-lower-at-usd-8326bbl",
+   "date": "2026-11-18"
+  },
+  {
+   "title": "NYMEX RBOB (data.json wholesale): $2.5027 on Nov 20, +0.8c 1d, -3.2c 3d, -11.9c 5d",
+   "url": "https://finance.yahoo.com/quote/RB=F/",
+   "date": "2026-11-20"
+  }
+ ],
+ "made_utc": "2026-11-21T13:44:40Z"
+}
