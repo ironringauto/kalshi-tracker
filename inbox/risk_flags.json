@@ -1,5 +1,19 @@
-{"date": "2026-11-22", "national_risk": "low", "national_reason": "", "states": {}, "sources": [
- {"title": "Oil prices end largely unchanged as Brent edges higher and US crude slips", "url": "https://qna.org.qa/en/News-Area/News/2026-11/20/oil-prices-end-largely-unchanged-as-brent-edges-higher-and-us-crude-slips", "date": "2026-11-20"},
- {"title": "Gas Prices Are Falling. Why Thanksgiving Travel May Still Dip", "url": "https://www.moneytalksnews.com/gas-prices-are-falling-why-thanksgiving-travel-may-still-dip/", "date": "2026-11-21"},
- {"title": "NYMEX RBOB (data.json wholesale): $2.4788 on Nov 20, -1.6c 1d, -5.6c 3d, -14.3c 5d", "url": "https://finance.yahoo.com/quote/RB=F/", "date": "2026-11-20"}
-], "made_utc": "2026-11-22T13:44:15Z"}
+{
+ "date": "2026-11-22",
+ "national_risk": "low",
+ "national_reason": "",
+ "states": {},
+ "sources": [
+  {
+   "title": "Oil prices end largely unchanged as Brent edges higher and US crude slips",
+   "url": "https://qna.org.qa/en/News-Area/News/2026-11/20/oil-prices-end-largely-unchanged-as-brent-edges-higher-and-us-crude-slips",
+   "date": "2026-11-20"
+  },
+  {
+   "title": "NYMEX RBOB (data.json wholesale): $2.4788 on Nov 20, -1.6c 1d, -5.6c 3d, -14.3c 5d",
+   "url": "https://finance.yahoo.com/quote/RB=F/",
+   "date": "2026-11-20"
+  }
+ ],
+ "made_utc": "2026-11-22T13:44:15Z"
+}
