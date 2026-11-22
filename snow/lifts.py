@@ -204,6 +204,24 @@ SRC = {
     "sierra": (sierra, "https://www.sierraattahoe.com/lifts-trails-grooming/"),
     "mammoth": (lambda: mtnpowder(60), "https://www.mammothmountain.com/on-the-mountain/mountain-report"),
 }
+MAPLINK = {
+    "snowbird": "https://www.snowbird.com/the-mountain/maps/",
+    "brighton": "https://www.brightonresort.com/trail-maps",
+    "solitude": "https://www.solitudemountain.com/mountain-and-village/conditions-and-maps",
+    "snowbasin": "https://www.snowbasin.com/the-mountain/trail-maps/",
+    "jackson": "https://www.jacksonhole.com/maps",
+    "targhee": "https://www.grandtarghee.com/the-mountain/mountain-information/trail-maps",
+    "winterpark": "https://www.winterparkresort.com/the-mountain/mountain-report",
+    "copper": "https://www.coppercolorado.com/the-mountain/trail-area-maps/winter-trail-map",
+    "abasin": "https://www.arapahoebasin.com/trail-maps/",
+    "steamboat": "https://www.steamboat.com/the-mountain/trail-maps",
+    "eldora": "https://www.eldora.com/the-mountain/maps/alpine-trail-map/",
+    "snowmass": "https://www.aspensnowmass.com/four-mountains/snowmass/trail-maps",
+    "palisades": "https://www.palisadestahoe.com/mountain-information/trail-maps",
+    "sugarbowl": "https://www.sugarbowl.com/maps",
+    "sierra": "https://www.sierraattahoe.com/trail-map/",
+    "mammoth": "https://www.mammothmountain.com/on-the-mountain/winter-trail-map",
+}
 PLATFORM = {"snowbird": "resort API", "copper": "resort API", "eldora": "resort API", "brighton": "resort API",
             "jackson": "resort API", "snowmass": "resort API", "snowbasin": "resort site", "targhee": "resort site",
             "sugarbowl": "resort site", "sierra": "resort site"}
@@ -335,6 +353,7 @@ def build_status_file(out_dir, data, log=print):
             e["map_match"] = f"{hit}/{len(named)} named runs, {sum(1 for x in ms['lifts'] if x)}/{len(g['lifts'])} lifts"
         e["x"] = xp.get(rid) or []
         e["x_handle"] = RESORT_X.get(rid)
+        e["maplink"] = MAPLINK.get(rid)
         res["resorts"][rid] = e
     os.makedirs(out_dir, exist_ok=True)
     json.dump(res, open(os.path.join(out_dir, "lifts.json"), "w"), separators=(",", ":"))

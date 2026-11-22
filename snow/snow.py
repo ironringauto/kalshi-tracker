@@ -1036,13 +1036,22 @@ table.hr td.gw{color:#e0602a;font-weight:700}
 .rx{margin-top:7px;border-left:3px solid #1d9bf0;padding:2px 0 2px 9px}
 .rx .rxh{font-size:11.5px;color:var(--mut)}.rx .rxh a{color:#1d9bf0;font-weight:700;text-decoration:none}
 .rx .rxt{font-size:12.5px;line-height:1.4;white-space:pre-line;margin:1px 0 5px}
-.tmwrap{margin-top:7px;position:relative}
-.tmap{height:420px;border-radius:9px;overflow:hidden;background:#24303c}
-.tmleg{display:flex;flex-wrap:wrap;gap:10px;font-size:11.5px;color:var(--mut);margin-top:5px;align-items:center}
+.tmwrap{margin-top:7px}
+.tmbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;align-items:center}
+.tmseg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.tmseg button,.tmfs{font:inherit;font-size:12px;font-weight:600;padding:4px 9px;border:0;background:var(--card);color:var(--ink);cursor:pointer}
+.tmseg button+button{border-left:1px solid var(--line)}.tmseg button.on{background:var(--s2);color:#fff}
+.tmfs{border:1px solid var(--line);border-radius:7px;margin-left:auto}
+.tmap{height:440px;border-radius:9px;overflow:hidden;background:#f1f4f8;border:1px solid var(--line)}
+.tmleg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--mut);margin-top:6px;align-items:center}
 .tmleg b{display:inline-block;width:18px;height:4px;border-radius:2px;vertical-align:middle;margin-right:4px}
-.tmleg .dash{background:repeating-linear-gradient(90deg,currentColor 0 5px,transparent 5px 9px)!important;height:3px}
-.tmseg{position:absolute;top:8px;right:8px;z-index:500;display:flex;border-radius:7px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.35)}
-.tmseg button{font:inherit;font-size:12px;font-weight:600;padding:4px 9px;border:0;background:#fff;color:#223;cursor:pointer}.tmseg button.on{background:#223;color:#fff}
+.tmleg .fade{opacity:.4}
+.tml{white-space:nowrap;font:600 11px/1.1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1d2733;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff,0 0 4px #fff;pointer-events:none;transform:translate(-50%,-50%);display:inline-block}
+.tml.lift{font-weight:700;font-size:11px;color:#6b7785}.tml.lift.op{font-weight:800;font-size:11.5px;color:#111}
+.tml.c{color:#6b7785;font-weight:500}.tml i{font-style:normal;margin-right:2px}
+.tmwrap.full{position:fixed;inset:0;z-index:9999;background:var(--card);padding:10px;margin:0;display:flex;flex-direction:column}
+.tmwrap.full .tmap{flex:1;height:auto!important}
+.leaflet-tooltip.tmt{font-size:12px}
 .wxas{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 8px}
 .wxa{font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;background:#fff1e0;color:#8a4b00;text-decoration:none;border:1px solid #f1c48a}
 details.trip{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
@@ -1331,7 +1340,7 @@ function card(el,e){
    +bar("Lifts",e.lifts_open,e.lifts_total,hold)+bar("Runs",e.runs_open,e.runs_total)
    +(extra?'<div class="mut mx">'+esc(extra)+'</div>':"")
    +(e.x&&e.x.length?'<div class="rx">'+e.x.slice(0,2).map(function(p){return '<div class="rxh"><a href="https://x.com/'+esc(p.h)+'" target="_blank" rel="noopener">@'+esc(p.h)+'</a> on X · <span class="ago" data-t="'+esc(p.t)+'">'+fmt(p.t)+'</span></div><div class="rxt">'+esc(p.text)+'</div>'}).join("")+'</div>':"")
-   +'<div class="mbtns">'+(e.map?'<button class="mbtn tmbtn">Trail map</button>':"")+'<button class="mbtn llbtn">Lift by lift</button><a href="'+esc(e.link)+'" target="_blank" rel="noopener">Resort lift report ↗</a></div>'
+   +'<div class="mbtns">'+(e.map?'<button class="mbtn tmbtn">Trail map</button>':"")+'<button class="mbtn llbtn">Lift by lift</button><a href="'+esc(e.link)+'" target="_blank" rel="noopener">Lift report ↗</a>'+(e.maplink?'<a href="'+esc(e.maplink)+'" target="_blank" rel="noopener">Official trail map ↗</a>':"")+'</div>'
    +'<div class="llist" hidden></div><div class="tmwrap" hidden></div>';
   el.innerHTML=h;el._e=e;
 }
@@ -1342,31 +1351,76 @@ function list(el){
   h+='<h5>Open runs ('+o.length+')</h5><div class="oruns">'+(o.length?o.map(function(r){return esc(r.n)}).join(" · "):'<span class="mut">None open right now</span>')+'</div>';
   return h;
 }
+function dcat(d){d=(d||"").toLowerCase();if(/park/.test(d))return"p";if(/expert|extreme|freeride|double|dbl/.test(d))return"kk";if(/black|advanced|difficult/.test(d)&&!/more/.test(d))return"k";if(/intermed|blue|more/.test(d))return"b";if(/novice|easy|begin|green/.test(d))return"g";return"u"}
+var DC={g:"#1f9d45",b:"#1d63d6",k:"#111111",kk:"#111111",p:"#ee7a00",u:"#6b7785"},DN={g:"Beginner",b:"Intermediate",k:"Advanced",kk:"Expert",p:"Terrain park",u:"Run"},DS={g:"●",b:"■",k:"◆",kk:"◆◆",p:"▲",u:""};
 function tmap(wrap,rid,e){
-  wrap.innerHTML='<div class="tmap"></div><div class="tmseg"><button class="on" data-v="all">All</button><button data-v="open">Open only</button></div>'
-   +'<div class="tmleg"><span><b style="background:'+COL.o+'"></b>Open run</span><span><b style="background:'+COL.c+';opacity:.7"></b>Closed run</span><span><b style="background:'+COL.u+'"></b>No status</span>'
-   +'<span style="color:'+COL.o+'"><b class="dash"></b>Open lift</span><span style="color:'+COL.c+'"><b class="dash"></b>Closed lift</span><span>Tap a line for its name · runs © OpenStreetMap, imagery USGS</span></div>';
-  var div=wrap.querySelector(".tmap");
-  var m=L.map(div,{attributionControl:false,zoomSnap:0.25,scrollWheelZoom:false,renderer:L.canvas({tolerance:9})});
+  wrap.innerHTML='<div class="tmbar"><span class="tmseg" data-k="base"><button class="on" data-v="hill">Terrain</button><button data-v="sat">Satellite</button></span>'
+   +'<span class="tmseg" data-k="col"><button class="on" data-v="diff">Trail colors</button><button data-v="stat">Open / closed</button></span>'
+   +'<span class="tmseg" data-k="show"><button class="on" data-v="all">All runs</button><button data-v="open">Open only</button></span>'
+   +'<button class="tmfs">⤢ Full screen</button></div><div class="tmap"></div><div class="tmleg"></div>';
+  var div=wrap.querySelector(".tmap"),leg=wrap.querySelector(".tmleg"),st={base:"hill",col:"diff",show:"all"},m=L.map(div,{attributionControl:false,zoomSnap:0.25,scrollWheelZoom:false,renderer:L.canvas({tolerance:9})});
   m.on("click",function(){m.scrollWheelZoom.enable()});m.on("mouseout",function(){m.scrollWheelZoom.disable()});
-  fetch("trailmaps/"+rid+".json").then(function(r){return r.json()}).then(function(g){
-    var b=L.latLngBounds(g.img.bounds),pr=function(ll){return L.CRS.EPSG3857.project(ll)},p0=pr(b.getSouthWest()),p1=pr(b.getNorthEast());
-    var asp=Math.abs((p1.y-p0.y)/(p1.x-p0.x));div.style.height=Math.round(Math.max(280,Math.min(560,div.clientWidth*asp)))+"px";m.invalidateSize();
-    L.imageOverlay(g.img.file,b).addTo(m);m.fitBounds(b);
-    var z=m.getZoom();m.setMinZoom(z-1);m.setMaxZoom(z+3.5);m.setMaxBounds(b.pad(0.25));
-    var layers={all:[],closed:[]};
-    function draw(kind,feats,codes){
-      var ord=["u","c","h","o"];
-      ord.forEach(function(k){feats.forEach(function(f,i){var c=codes.charAt(i)||"u";if(c!==k)return;
-        var lift=kind==="lift",st={color:COL[c],weight:lift?3.2:(c==="o"?3.4:c==="h"?3:2),opacity:c==="o"?1:c==="h"?0.95:c==="c"?0.6:0.55,dashArray:lift?"6 5":null,lineCap:"round"};
-        var tip='<b>'+esc(f.n||(lift?"Unnamed lift":"Unnamed run"))+'</b><br>'+(lift?"Lift":esc(DIFF(f.d)||"Run"))+' · <span style="color:'+(c==="u"?"#667":COL[c])+';font-weight:700">'+WORD[c]+'</span>';
-        f.g.forEach(function(seg){var pl=L.polyline(seg.map(function(p){return[p[1],p[0]]}),st).bindPopup(tip).addTo(m);layers.all.push(pl);if(c!=="o"&&c!=="h")layers.closed.push(pl)})})});
+  var G,bnd,bases={},lines=L.layerGroup().addTo(m),labs=L.layerGroup().addTo(m),items=[];
+  function legend(){var h=st.col==="diff"
+      ?'<span><b style="background:'+DC.g+'"></b>● Beginner</span><span><b style="background:'+DC.b+'"></b>■ Intermediate</span><span><b style="background:#111"></b>◆ Advanced · ◆◆ Expert</span><span><b style="background:'+DC.p+'"></b>Park</span><span><b class="fade" style="background:#555"></b>Faded = closed</span><span><b style="background:#111"></b><span style="color:#16a34a">●</span> Open lift</span><span><b class="fade" style="background:#555"></b>Closed lift (grey, dashed)</span>'
+      :'<span><b style="background:'+COL.o+'"></b>Open</span><span><b style="background:'+COL.h+'"></b>On hold</span><span><b style="background:'+COL.c+'"></b>Closed</span><span><b style="background:#aab4bf"></b>No status</span>';
+    leg.innerHTML=h+'<span>Tap a line for details · runs © OpenStreetMap · imagery USGS</span>'}
+  function draw(){
+    lines.clearLayers();items=[];var only=st.show==="open";
+    function add(kind,feats,codes){feats.forEach(function(f,i){
+      var c=codes.charAt(i)||"u",open=c==="o"||c==="h",lift=kind==="lift",cat=lift?"":dcat(f.d);
+      if(only&&!open&&!lift)return;
+      var col,w,op,dash=null,casing=false;
+      if(st.col==="diff"){
+        if(lift){col=open?"#111":"#7d8996";w=open?2.8:2.2;op=1;casing=open;dash=open?null:"6 4"}
+        else{col=DC[cat];w=open?3.4:2.2;op=open?1:(c==="u"?0.6:0.38);casing=open;dash=open?(cat==="kk"?"8 3":null):"5 5"}
+      }else{
+        col=c==="u"?"#aab4bf":COL[c];w=lift?2.8:(open?3.4:2.2);op=open?1:0.75;casing=open||lift;dash=lift?"7 4":null}
+      var tip='<b>'+esc(f.n||(lift?"Unnamed lift":"Unnamed run"))+'</b><br>'+(lift?"Lift":(DS[cat]?DS[cat]+" ":"")+DN[cat])+' · <span style="color:'+(c==="u"?"#667":COL[c])+';font-weight:700">'+WORD[c]+'</span>';
+      f.g.forEach(function(seg){var ll=seg.map(function(p){return[p[1],p[0]]});
+        if(casing)L.polyline(ll,{color:"#fff",weight:w+3,opacity:st.base==="sat"?0.75:0.95,interactive:false,lineCap:"round"}).addTo(lines);
+        L.polyline(ll,{color:col,weight:w,opacity:op,dashArray:dash,lineCap:"round"}).bindPopup(tip).addTo(lines);
+        if(lift){[ll[0],ll[ll.length-1]].forEach(function(p){L.circleMarker(p,{radius:3,color:"#fff",weight:1.5,fillColor:col,fillOpacity:1,interactive:false}).addTo(lines)})}
+      });
+      if(f.n)items.push({n:f.n,lift:lift,c:c,open:open,cat:cat,g:f.g});
+    })}
+    add("run",G.runs,e.map.runs);add("lift",G.lifts,e.map.lifts);
+    // one label per name, at the middle of its longest piece
+    var by={};items.forEach(function(it){var k=(it.lift?"L|":"R|")+it.n;(by[k]=by[k]||{it:it,segs:[]}).segs=by[k].segs.concat(it.g)});
+    items=Object.keys(by).map(function(k){var o=by[k],best=null,bl=-1,tot=0;o.segs.forEach(function(sg){var l=0;for(var j=1;j<sg.length;j++)l+=Math.hypot(sg[j][0]-sg[j-1][0],sg[j][1]-sg[j-1][1]);tot+=l;if(l>bl){bl=l;best=sg}});
+      var half=bl/2,acc=0,pt=best[0];for(var j=1;j<best.length;j++){var d=Math.hypot(best[j][0]-best[j-1][0],best[j][1]-best[j-1][1]);if(acc+d>=half){var t=(half-acc)/(d||1);pt=[best[j-1][0]+t*(best[j][0]-best[j-1][0]),best[j-1][1]+t*(best[j][1]-best[j-1][1])];break}acc+=d}
+      var it=o.it;return{n:it.n,lift:it.lift,c:it.c,open:it.open,cat:it.cat,ll:[pt[1],pt[0]],len:tot,pri:(it.lift?(it.open?4e3:3e3):(it.open?2e3:1e3))+Math.min(999,tot*1e4)}});
+    items.sort(function(a,b){return b.pri-a.pri});
+    labels();
+  }
+  function labels(){
+    labs.clearLayers();var placed=[],z=m.getZoom(),fz=m._fitZ||z,only=st.show==="open",max=z<fz+0.6?40:z<fz+1.6?90:400;
+    var size=m.getSize();
+    for(var i=0;i<items.length&&placed.length<max;i++){var it=items[i];if(only&&!it.open&&!it.lift)continue;
+      var p=m.latLngToContainerPoint(it.ll);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;
+      var txt=(it.lift?"":(DS[it.cat]?DS[it.cat]+" ":""))+it.n,w=txt.length*(it.lift?7:6.2)+8,h=14,r={x0:p.x-w/2,x1:p.x+w/2,y0:p.y-h/2,y1:p.y+h/2},hit=false;
+      for(var j=0;j<placed.length;j++){var q=placed[j];if(r.x0<q.x1&&r.x1>q.x0&&r.y0<q.y1&&r.y1>q.y0){hit=true;break}}
+      if(hit)continue;placed.push(r);
+      var cls="tml"+(it.lift?" lift"+(it.open?" op":""):(!it.open&&st.col==="diff"?" c":"")),color=(!it.lift&&st.col==="diff"&&it.open)?' style="color:'+(it.cat==="g"?"#137a33":it.cat==="b"?"#1550b3":it.cat==="p"?"#b85a00":"#111")+'"':"";
+      L.marker(it.ll,{interactive:false,keyboard:false,icon:L.divIcon({className:"",iconSize:null,html:'<span class="'+cls+'"'+color+'>'+(it.lift&&it.open?'<i style="color:#16a34a">●</i>':"")+esc(txt)+'</span>'})}).addTo(labs);
     }
-    draw("run",g.runs,e.map.runs);draw("lift",g.lifts,e.map.lifts);
-    wrap.querySelector(".tmseg").addEventListener("click",function(ev){var bt=ev.target.closest("button");if(!bt)return;
-      wrap.querySelectorAll(".tmseg button").forEach(function(x){x.classList.toggle("on",x===bt)});
-      var only=bt.getAttribute("data-v")==="open";layers.closed.forEach(function(pl){if(only)m.removeLayer(pl);else pl.addTo(m)})});
-  }).catch(function(){div.innerHTML='<div style="color:#fff;padding:14px">Trail map unavailable</div>'});
+  }
+  function setBase(){Object.keys(bases).forEach(function(k){if(k===st.base)bases[k].addTo(m);else m.removeLayer(bases[k])});div.style.background=st.base==="sat"?"#24303c":"#f1f4f8"}
+  function fit(){var fb=G.bbox?L.latLngBounds([[G.bbox[1],G.bbox[0]],[G.bbox[3],G.bbox[2]]]):bnd,pr=function(ll){return L.CRS.EPSG3857.project(ll)},p0=pr(fb.getSouthWest()),p1=pr(fb.getNorthEast()),asp=Math.abs((p1.y-p0.y)/(p1.x-p0.x));
+    if(!wrap.classList.contains("full"))div.style.height=Math.round(Math.max(300,Math.min(600,div.clientWidth*asp)))+"px";
+    m.invalidateSize();var bb=G.bbox?L.latLngBounds([[G.bbox[1],G.bbox[0]],[G.bbox[3],G.bbox[2]]]):bnd;m.fitBounds(bb,{padding:[8,8]});m._fitZ=m.getZoom();m.setMinZoom(m._fitZ-1);m.setMaxZoom(m._fitZ+3.5);labels()}
+  fetch("trailmaps/"+rid+".json").then(function(r){return r.json()}).then(function(g){
+    G=g;bnd=L.latLngBounds(g.img.bounds);bases.sat=L.imageOverlay(g.img.file,bnd);bases.hill=L.imageOverlay((g.hill||g.img).file,bnd);
+    m.setMaxBounds(bnd.pad(0.3));setBase();bases[st.base].bringToBack();fit();legend();draw();
+    m.on("zoomend moveend",labels);
+  }).catch(function(){div.innerHTML='<div style="padding:14px">Trail map unavailable</div>'});
+  wrap.querySelector(".tmbar").addEventListener("click",function(ev){
+    if(ev.target.closest(".tmfs")){wrap.classList.toggle("full");ev.target.closest(".tmfs").textContent=wrap.classList.contains("full")?"✕ Close":"⤢ Full screen";setTimeout(fit,30);return}
+    var bt=ev.target.closest(".tmseg button");if(!bt)return;var sg=bt.parentNode,k=sg.getAttribute("data-k");
+    sg.querySelectorAll("button").forEach(function(x){x.classList.toggle("on",x===bt)});st[k]=bt.getAttribute("data-v");
+    if(k==="base"){setBase();draw()}else{if(k==="col")legend();draw()}
+  });
+  document.addEventListener("keydown",function(ev){if(ev.key==="Escape"&&wrap.classList.contains("full")){wrap.querySelector(".tmfs").click()}});
   setTimeout(function(){m.invalidateSize()},50);
 }
 document.addEventListener("click",function(ev){

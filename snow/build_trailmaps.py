@@ -140,3 +140,46 @@ def bake_images(maxpx=2400, pad=0.08):
         d["img"] = {"file": f"trailmaps/{r}.jpg", "bounds": [[y0, x0], [y1, x1]], "z": z}
         json.dump(d, open(os.path.join(od, r + ".json"), "w"), separators=(",", ":"))
         print(r, "z", z, crop.size, os.path.getsize(fn) // 1024, "KB")
+
+
+HILL = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSShadedReliefOnly/MapServer/tile/{z}/{y}/{x}"
+
+
+def bake_hill(maxpx=1800):
+    """Snowy shaded-relief background, same bounds as the satellite image (cleaner for reading labels)."""
+    import math, io, urllib.request
+    from concurrent.futures import ThreadPoolExecutor
+    from PIL import Image, ImageOps
+    od = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trailmaps")
+    def wx(lon, z): return (lon + 180) / 360 * 256 * 2 ** z
+    def wy(lat, z):
+        s = math.sin(math.radians(lat)); return (0.5 - math.log((1 + s) / (1 - s)) / (4 * math.pi)) * 256 * 2 ** z
+    def get(z, x, y):
+        for _ in range(3):
+            try:
+                b = urllib.request.urlopen(urllib.request.Request(HILL.format(z=z, x=x, y=y), headers={"User-Agent": "Mozilla/5.0"}), timeout=30).read()
+                return Image.open(io.BytesIO(b)).convert("L")
+            except Exception:
+                pass
+        return Image.new("L", (256, 256), 220)
+    for r in AREAS:
+        fn = os.path.join(od, r + ".json"); d = json.load(open(fn))
+        (y0, x0), (y1, x1) = d["img"]["bounds"]
+        z = 16
+        while z > 11 and max(wx(x1, z) - wx(x0, z), wy(y0, z) - wy(y1, z)) > maxpx:
+            z -= 1
+        px0, px1, py0, py1 = wx(x0, z), wx(x1, z), wy(y1, z), wy(y0, z)
+        tx0, tx1, ty0, ty1 = int(px0 // 256), int(px1 // 256), int(py0 // 256), int(py1 // 256)
+        canvas = Image.new("L", ((tx1 - tx0 + 1) * 256, (ty1 - ty0 + 1) * 256))
+        jobs = [(x, y) for x in range(tx0, tx1 + 1) for y in range(ty0, ty1 + 1)]
+        with ThreadPoolExecutor(8) as ex:
+            for (x, y), im in zip(jobs, ex.map(lambda t: get(z, *t), jobs)):
+                canvas.paste(im, ((x - tx0) * 256, (y - ty0) * 256))
+        g = canvas.crop((int(px0 - tx0 * 256), int(py0 - ty0 * 256), int(px1 - tx0 * 256), int(py1 - ty0 * 256)))
+        g = ImageOps.autocontrast(g, cutoff=1)
+        # snowy palette: shadows slate blue, lit slopes near white
+        col = ImageOps.colorize(g, black=(96, 116, 140), mid=(196, 208, 222), white=(250, 252, 255), midpoint=150)
+        out = os.path.join(od, r + "_hill.jpg"); col.save(out, quality=70, optimize=True, progressive=True)
+        d["hill"] = {"file": f"trailmaps/{r}_hill.jpg", "bounds": d["img"]["bounds"]}
+        json.dump(d, open(fn, "w"), separators=(",", ":"))
+        print(r, "z", z, col.size, os.path.getsize(out) // 1024, "KB")
