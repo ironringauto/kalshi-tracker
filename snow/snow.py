@@ -614,9 +614,7 @@ def render_card(r, scale):
 
 
 def render_report(r):
-    rp = (r.get("live") or {}).get("report")
-    if not rp:
-        return ""
+    rp = (r.get("live") or {}).get("report") or {"link": "#", "flag": None}
     today = datetime.now(ZoneInfo(REGION_TZ[r["region"]])).date()
     opens = None
     try:
@@ -638,12 +636,11 @@ def render_report(r):
         return (f'<div class="mrow"><span class="ml">{label}</span><span class="mbar"><i style="width:{pct}%"></i></span>'
                 f'<span class="mv"><b>{o}</b>/{t}</span></div>')
     extra = []
-    if rp.get("acres_total"):
-        extra.append(f'{rp["acres_open"] if rp.get("acres_open") is not None else "?"} of {rp["acres_total"]:,} acres')
-    if rp.get("parks_total"):
-        extra.append(f'{rp.get("parks_open") or 0} of {rp["parks_total"]} terrain parks')
+    if rp.get("acres_total") and rp.get("acres_open"):
+        extra.append(f'{rp["acres_open"]:,} of {rp["acres_total"]:,} acres open')
     lbl, iso = _ts(rp.get("updated", ""), ZoneInfo(REGION_TZ[r["region"]]))
-    return (f'<div class="mstat"><div class="mhead"><span class="mpill {cls}">{esc(pill)}</span>'
+    return (f'<div class="mstat" data-rid="{r["id"]}" data-opens="{esc(rp.get("opens") or "")}" data-today="{today.isoformat()}" '
+            f'data-extra="{esc(" · ".join(extra))}"><div class="mhead"><span class="mpill {cls}">{esc(pill)}</span>'
             f'<span class="mut">Lifts and runs (resort-reported) · <span class="ago" data-t="{iso}">{lbl}</span></span></div>'
             f'{bar("Lifts", rp.get("lifts_open"), rp.get("lifts_total"))}{bar("Runs", rp.get("runs_open"), rp.get("runs_total"))}'
             f'<div class="mut mx">{" · ".join(extra)}{" · " if extra else ""}<a href="{esc(rp["link"])}" target="_blank" rel="noopener">Full lift and trail report</a></div></div>')
@@ -804,9 +801,36 @@ def render(data, tzs=None):
             .replace("{{leafletcss}}", LEAFLET_CSS))
 
 
+def build_lifts(out):
+    """Official lift/run status -> out/lifts.json, plus trail-map geometry + imagery -> out/trailmaps/.
+    Also runnable alone: python3 snow.py --lifts-only --out DIR (fast refresh, ~30 s)."""
+    import shutil
+    here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        sys.path.insert(0, here)
+        import lifts as lifts_mod
+        d, health = lifts_mod.fetch_all(log=log)
+        lifts_mod.build_status_file(out, d, log=log)
+    except Exception as e:
+        log(f"Lift status: {e}")
+        health = {"all": f"{type(e).__name__}: {e}"}
+    try:
+        td = os.path.join(out, "trailmaps"); os.makedirs(td, exist_ok=True)
+        for f in os.listdir(os.path.join(here, "trailmaps")):
+            shutil.copy(os.path.join(here, "trailmaps", f), os.path.join(td, f))
+    except Exception as e:
+        log(f"Trail maps: {e}")
+    bad = {k: v for k, v in health.items() if v != "ok"}
+    return {"status": "ok" if not bad else "degraded", "failed": bad}
+
+
 def main():
     out = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else "out"
     os.makedirs(out, exist_ok=True)
+    if "--lifts-only" in sys.argv:
+        h = build_lifts(out)
+        print(json.dumps({"lifts_health": h, "warnings": LOG}, indent=1))
+        return
     now = datetime.now(UTC)
     members, tzs, snotel, afd = gather()
     resorts = analyze(members, tzs, snotel, now)
@@ -829,6 +853,7 @@ def main():
         log(f"Live cams and roads: {e}")
         live_asof = None
         live_health = {"status": "broken", "problems": [{"source": "live.py", "feeds": "all cams and roads", "level": "broken", "detail": str(e)[:200]}]}
+    lifts_health = build_lifts(out)
     srcs = sorted({n for r in resorts for n in r["sources"]})
     radar_meta = None
     try:
@@ -854,7 +879,7 @@ def main():
     data = {"generated": now.isoformat(), "call": call, "alerts": alerts, "weekly_outlook": sunday,
             "provo": provo_outlook(members, now), "resorts": resorts, "afd_slc": afd,
             "sources_ok": srcs, "nws_ok": sum(1 for r in resorts if "NWS" in r["sources"]),
-            "snotel_ok": len(snotel), "warnings": LOG, "radar": radar_meta, "tzs": tzs, "live_asof": live_asof, "live_health": live_health}
+            "snotel_ok": len(snotel), "warnings": LOG, "radar": radar_meta, "tzs": tzs, "live_asof": live_asof, "live_health": live_health, "lifts_health": lifts_health}
     json.dump(data, open(os.path.join(out, "data.json"), "w"), indent=1, default=str)
     open(os.path.join(out, "index.html"), "w").write(render(data))
     print(json.dumps({"call": call, "alerts": alerts, "weekly_outlook": sunday, "sources_ok": srcs,
@@ -998,6 +1023,26 @@ table.hr td.gw{color:#e0602a;font-weight:700}
 .ml{width:38px;color:var(--mut)}.mv{min-width:56px;text-align:right}
 .mbar{flex:1;height:7px;border-radius:4px;background:var(--line);overflow:hidden}.mbar i{display:block;height:100%;background:#1f9d55;border-radius:4px}
 .mx{font-size:11.5px;margin-top:4px}.mx a{color:var(--s2);text-decoration:none;font-weight:600}
+.mhold{color:#b7791f;font-weight:600;font-size:11.5px}
+.mbtns{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.mbtn{font:inherit;font-size:12px;font-weight:600;padding:4px 10px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.mbtn.on{background:var(--s2);color:#fff;border-color:var(--s2)}
+.mbtns a{font-size:12px;color:var(--s2);text-decoration:none;font-weight:600}
+.llist{margin-top:7px;font-size:12px}.llist h5{margin:6px 0 4px;font-size:11.5px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.lch{display:inline-flex;align-items:center;gap:4px;margin:0 4px 4px 0;padding:2px 7px;border-radius:12px;background:var(--line);font-size:11.5px}
+.lch i{width:7px;height:7px;border-radius:50%;background:#8a96a3;display:inline-block}.lch.open i{background:#22c55e}.lch.hold i{background:#f5b301}
+.lch.open{background:#e3f6ea;color:#14532d}.lch.hold{background:#fff4d6;color:#7a5200}
+.oruns{line-height:1.55;color:var(--ink)}
+.rx{margin-top:7px;border-left:3px solid #1d9bf0;padding:2px 0 2px 9px}
+.rx .rxh{font-size:11.5px;color:var(--mut)}.rx .rxh a{color:#1d9bf0;font-weight:700;text-decoration:none}
+.rx .rxt{font-size:12.5px;line-height:1.4;white-space:pre-line;margin:1px 0 5px}
+.tmwrap{margin-top:7px;position:relative}
+.tmap{height:420px;border-radius:9px;overflow:hidden;background:#24303c}
+.tmleg{display:flex;flex-wrap:wrap;gap:10px;font-size:11.5px;color:var(--mut);margin-top:5px;align-items:center}
+.tmleg b{display:inline-block;width:18px;height:4px;border-radius:2px;vertical-align:middle;margin-right:4px}
+.tmleg .dash{background:repeating-linear-gradient(90deg,currentColor 0 5px,transparent 5px 9px)!important;height:3px}
+.tmseg{position:absolute;top:8px;right:8px;z-index:500;display:flex;border-radius:7px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.tmseg button{font:inherit;font-size:12px;font-weight:600;padding:4px 9px;border:0;background:#fff;color:#223;cursor:pointer}.tmseg button.on{background:#223;color:#fff}
 .wxas{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 8px}
 .wxa{font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;background:#fff1e0;color:#8a4b00;text-decoration:none;border:1px solid #f1c48a}
 details.trip{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
@@ -1266,11 +1311,82 @@ details.trip[open]>summary::before{content:"▾ "}
 </script>
 <div id="lb" role="dialog" aria-label="Photo"><img alt=""><div></div></div>
 <script>
+(function(){
+var COL={o:"#22c55e",h:"#f5b301",c:"#ef4444",u:"#d5dde6"},WORD={o:"Open",h:"On hold",c:"Closed",u:"Status not matched"};
+var DIFF=function(d){d=(d||"").toLowerCase();return /novice|easy|begin|green/.test(d)?"Beginner (green)":/double.?black|expert|extreme|freeride|dbl/.test(d)?"Expert (double black)":/black|advanced|most_difficult|difficult/.test(d)?"Advanced (black)":/intermed|blue|more_difficult/.test(d)?"Intermediate (blue)":/park/.test(d)?"Terrain park":""};
+var LJ=null;
+function esc(t){return String(t==null?"":t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function fmt(iso){var t=Date.parse(iso);return t?new Date(t).toLocaleString([],{weekday:"short",hour:"numeric",minute:"2-digit"}):""}
+function bar(l,o,t,x){if(!t)return"";var p=Math.max(0,Math.min(100,Math.round(100*o/t)));return '<div class="mrow"><span class="ml">'+l+'</span><span class="mbar"><i style="width:'+p+'%"></i></span><span class="mv"><b>'+o+'</b>/'+t+'</span></div>'+(x||"")}
+function card(el,e){
+  var rid=el.getAttribute("data-rid"),opens=el.getAttribute("data-opens"),today=el.getAttribute("data-today"),extra=el.getAttribute("data-extra");
+  var pill,cls;
+  if(e.lifts_open>0){pill="Open";cls="op"}
+  else if(e.lifts_hold>0){pill="Lifts on hold";cls="soon"}
+  else if(opens&&opens>today){var d=Math.round((Date.parse(opens)-Date.parse(today))/864e5);pill="Opens "+new Date(opens+"T12:00").toLocaleDateString([],{weekday:"short",month:"short",day:"numeric"})+(d===1?" (tomorrow)":d<8?" (in "+d+" days)":"");cls="soon"}
+  else{pill="Closed today";cls="cl"}
+  var when=e.updated&&Date.parse(e.updated)>Date.now()-36*36e5?'resort updated <span class="ago" data-t="'+esc(e.updated)+'">'+fmt(e.updated)+'</span>':'checked <span class="ago" data-t="'+esc(e.fetched)+'">'+fmt(e.fetched)+'</span>';
+  var hold=e.lifts_hold?'<div class="mhold">'+e.lifts_hold+' lift'+(e.lifts_hold>1?"s":"")+' on hold or scheduled</div>':"";
+  var h='<div class="mhead"><span class="mpill '+cls+'">'+esc(pill)+'</span><span class="mut">Lifts and runs from the resort\'s own report · '+when+'</span></div>'
+   +bar("Lifts",e.lifts_open,e.lifts_total,hold)+bar("Runs",e.runs_open,e.runs_total)
+   +(extra?'<div class="mut mx">'+esc(extra)+'</div>':"")
+   +(e.x&&e.x.length?'<div class="rx">'+e.x.slice(0,2).map(function(p){return '<div class="rxh"><a href="https://x.com/'+esc(p.h)+'" target="_blank" rel="noopener">@'+esc(p.h)+'</a> on X · <span class="ago" data-t="'+esc(p.t)+'">'+fmt(p.t)+'</span></div><div class="rxt">'+esc(p.text)+'</div>'}).join("")+'</div>':"")
+   +'<div class="mbtns">'+(e.map?'<button class="mbtn tmbtn">Trail map</button>':"")+'<button class="mbtn llbtn">Lift by lift</button><a href="'+esc(e.link)+'" target="_blank" rel="noopener">Resort lift report ↗</a></div>'
+   +'<div class="llist" hidden></div><div class="tmwrap" hidden></div>';
+  el.innerHTML=h;el._e=e;
+}
+function list(el){
+  var e=el._e,o=e.runs.filter(function(r){return r.s==="open"}),h='<h5>Lifts</h5>';
+  var ord={open:0,hold:1,closed:2};
+  e.lifts.slice().sort(function(a,b){return ord[a.s]-ord[b.s]}).forEach(function(l){h+='<span class="lch '+l.s+'" title="'+esc(l.s)+'"><i></i>'+esc(l.n)+'</span>'});
+  h+='<h5>Open runs ('+o.length+')</h5><div class="oruns">'+(o.length?o.map(function(r){return esc(r.n)}).join(" · "):'<span class="mut">None open right now</span>')+'</div>';
+  return h;
+}
+function tmap(wrap,rid,e){
+  wrap.innerHTML='<div class="tmap"></div><div class="tmseg"><button class="on" data-v="all">All</button><button data-v="open">Open only</button></div>'
+   +'<div class="tmleg"><span><b style="background:'+COL.o+'"></b>Open run</span><span><b style="background:'+COL.c+';opacity:.7"></b>Closed run</span><span><b style="background:'+COL.u+'"></b>No status</span>'
+   +'<span style="color:'+COL.o+'"><b class="dash"></b>Open lift</span><span style="color:'+COL.c+'"><b class="dash"></b>Closed lift</span><span>Tap a line for its name · runs © OpenStreetMap, imagery USGS</span></div>';
+  var div=wrap.querySelector(".tmap");
+  var m=L.map(div,{attributionControl:false,zoomSnap:0.25,scrollWheelZoom:false,renderer:L.canvas({tolerance:9})});
+  m.on("click",function(){m.scrollWheelZoom.enable()});m.on("mouseout",function(){m.scrollWheelZoom.disable()});
+  fetch("trailmaps/"+rid+".json").then(function(r){return r.json()}).then(function(g){
+    var b=L.latLngBounds(g.img.bounds),pr=function(ll){return L.CRS.EPSG3857.project(ll)},p0=pr(b.getSouthWest()),p1=pr(b.getNorthEast());
+    var asp=Math.abs((p1.y-p0.y)/(p1.x-p0.x));div.style.height=Math.round(Math.max(280,Math.min(560,div.clientWidth*asp)))+"px";m.invalidateSize();
+    L.imageOverlay(g.img.file,b).addTo(m);m.fitBounds(b);
+    var z=m.getZoom();m.setMinZoom(z-1);m.setMaxZoom(z+3.5);m.setMaxBounds(b.pad(0.25));
+    var layers={all:[],closed:[]};
+    function draw(kind,feats,codes){
+      var ord=["u","c","h","o"];
+      ord.forEach(function(k){feats.forEach(function(f,i){var c=codes.charAt(i)||"u";if(c!==k)return;
+        var lift=kind==="lift",st={color:COL[c],weight:lift?3.2:(c==="o"?3.4:c==="h"?3:2),opacity:c==="o"?1:c==="h"?0.95:c==="c"?0.6:0.55,dashArray:lift?"6 5":null,lineCap:"round"};
+        var tip='<b>'+esc(f.n||(lift?"Unnamed lift":"Unnamed run"))+'</b><br>'+(lift?"Lift":esc(DIFF(f.d)||"Run"))+' · <span style="color:'+(c==="u"?"#667":COL[c])+';font-weight:700">'+WORD[c]+'</span>';
+        f.g.forEach(function(seg){var pl=L.polyline(seg.map(function(p){return[p[1],p[0]]}),st).bindPopup(tip).addTo(m);layers.all.push(pl);if(c!=="o"&&c!=="h")layers.closed.push(pl)})})});
+    }
+    draw("run",g.runs,e.map.runs);draw("lift",g.lifts,e.map.lifts);
+    wrap.querySelector(".tmseg").addEventListener("click",function(ev){var bt=ev.target.closest("button");if(!bt)return;
+      wrap.querySelectorAll(".tmseg button").forEach(function(x){x.classList.toggle("on",x===bt)});
+      var only=bt.getAttribute("data-v")==="open";layers.closed.forEach(function(pl){if(only)m.removeLayer(pl);else pl.addTo(m)})});
+  }).catch(function(){div.innerHTML='<div style="color:#fff;padding:14px">Trail map unavailable</div>'});
+  setTimeout(function(){m.invalidateSize()},50);
+}
+document.addEventListener("click",function(ev){
+  var b=ev.target.closest(".tmbtn,.llbtn");if(!b)return;var el=b.closest(".mstat");if(!el||!el._e)return;
+  var isMap=b.classList.contains("tmbtn"),box=el.querySelector(isMap?".tmwrap":".llist"),open=box.hasAttribute("hidden");
+  if(open){box.removeAttribute("hidden");b.classList.add("on");if(!box._built){box._built=1;if(isMap)tmap(box,el.getAttribute("data-rid"),el._e);else box.innerHTML=list(el)}}
+  else{box.setAttribute("hidden","");b.classList.remove("on")}
+});
+fetch("lifts.json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){LJ=j;
+  document.querySelectorAll(".mstat[data-rid]").forEach(function(el){var e=j.resorts[el.getAttribute("data-rid")];if(e)card(el,e)});
+  var ev=document.createEvent("Event");ev.initEvent("liftsready",true,true);document.dispatchEvent(ev);
+}).catch(function(){});
+})();
+</script>
+<script>
 (function(){var lb=document.getElementById("lb"),li=lb.querySelector("img"),lc=lb.querySelector("div");
 document.addEventListener("click",function(e){var t=e.target;if(t.tagName==="IMG"&&t.hasAttribute("data-cap")){li.src=t.src;lc.textContent=t.getAttribute("data-cap");lb.classList.add("on")}else if(lb.classList.contains("on")&&lb.contains(t)){lb.classList.remove("on")}});
 document.addEventListener("keydown",function(e){if(e.key==="Escape")lb.classList.remove("on")});
 function ago(){var n=Date.now();document.querySelectorAll(".ago[data-t]").forEach(function(el){var t=Date.parse(el.getAttribute("data-t"));if(!t)return;var m=Math.round((n-t)/60000),s=m<1?"just now":m<60?m+" min ago":m<1440?Math.round(m/60)+" hr ago":Math.round(m/1440)+" days ago";
-  el.textContent=new Date(t).toLocaleString([],{weekday:"short",hour:"numeric",minute:"2-digit"})+" · "+s})}ago();setInterval(ago,60000)})();
+  el.textContent=new Date(t).toLocaleString([],{weekday:"short",hour:"numeric",minute:"2-digit"})+" · "+s})}ago();setInterval(ago,60000);document.addEventListener("liftsready",ago)})();
 </script>
 
 </body></html>
