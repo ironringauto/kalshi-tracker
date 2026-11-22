@@ -38,22 +38,22 @@ SOURCES = {
                 "status": [("wydot", "Jackson", r"WY ?22|WYO ?22|WY ?390|US 26/89|US 191")],
                 "x": [("IdahoITD", r"Teton Pass|Victor|SH-?33")]},
     "winterpark": {"ots": "colorado/winter-park-resort",
-                   "road": [("cdot", [963, 964, 19488, 19546])],
+                   "road": [("cdotq1", r"US 40 .*Mary Jane"), ("cdotq1", r"US 40 .*Berthoud"), ("cdotq1", r"US 40 .*Fraser"), ("cdotq1", r"I-70 .*W of Eisenhower")],
                    "status": [("cdot", ["US 40", "I-70"], (39.55, -106.0, 40.0, -105.4))], "x": CO_X},
     "copper": {"ots": "colorado/copper-mountain-resort",
-               "road": [("cdot", [20199, 19467, 20077, 19546])],
+               "road": [("cdotq1", r"CO 91 .*Copper"), ("cdotq1", r"I-70 .*CO 91 .*Copper"), ("cdotq1", r"I-70 .*at Vail Pass Summit"), ("cdotq1", r"I-70 .*W of Vail Pass Summit")],
                "status": [("cdot", ["I-70", "CO 91"], (39.45, -106.3, 39.75, -105.85))], "x": CO_X},
     "abasin": {"ots": "colorado/arapahoe-basin-ski-area",
-               "road": [("cdot", [19546, 20283, 19488]), ("cdotq", r"US ?6 .*(Loveland|Arapahoe)")],
+               "road": [("cdotq1", r"US 6 .*Loveland"), ("cdotq1", r"I-70 .*E of Eisenhower"), ("cdotq1", r"I-70 .*W of Eisenhower"), ("cdotq1", r"I-70 .*1.7 miles W of Eisenhower")],
                "status": [("cdot", ["I-70", "US 6"], (39.55, -106.0, 39.75, -105.7))], "x": CO_X},
     "steamboat": {"ots": "colorado/steamboat",
-                  "road": [("cdot", [20386]), ("cdotq", r"US ?40 .*Rabbit Ears")],
+                  "road": [("cdotq", r"US 40 .*(Rabbit Ears|Muddy Pass|Steamboat)")],
                   "status": [("cdot", ["US 40"], (40.2, -107.0, 40.6, -106.3))], "x": CO_X},
-    "eldora": {"ots": None,
-               "road": [("cdotq", r"CO ?119 ")],
+    "eldora": {"ots": None, "report": "colorado/eldora-mountain-resort",
+               "road": [("cdotq", r"CO 119 .*(Nederland|Boulder Canyon|Eldora)")],
                "status": [("cdot", ["CO 119"], (39.9, -105.6, 40.05, -105.25))], "x": CO_X},
     "snowmass": {"ots": "colorado/aspen-snowmass",
-                 "road": [("cdot", [1025, 1023]), ("cdotq", r"I-70 .*Glenwood Canyon|CO ?82 .*Aspen")],
+                 "road": [("cdot", [1025, 1023, 1024]), ("cdotq1", r"I-70 .*Glenwood Springs")],
                  "status": [("cdot", ["CO 82", "I-70"], (39.15, -107.4, 39.65, -106.8))], "x": CO_X},
     "palisades": {"ots": "california/palisades-tahoe",
                   "road": [("ct", [(D3.format("hwy89atolympicvalley"), "Hwy 89 at Olympic Valley"),
@@ -181,6 +181,26 @@ def caltrans_streams():
                 pass
         _ctv["m"] = m
     return _ctv["m"]
+
+
+def ots_report(slug):
+    """Lifts and runs open, season status and opening date from the OnTheSnow ski report (resort-reported)."""
+    h = http(f"https://www.onthesnow.com/{slug}/skireport").replace('\\"', '"')
+    m = re.search(r'"lifts":\{"open":(null|\d+),"total":(null|\d+)[^}]*\},"runs":\{"open":(null|\d+),"openPercent":(null|[\d.]+),"total":(null|\d+)'
+                  r'[^}]*\},"status":\{"openFlag":(null|\d+),"openingDate":(null|"[^"]*"),"closingDate":(null|"[^"]*")\},"updatedAt":"([^"]+)"', h)
+    if not m:
+        return None
+    num = lambda v: None if v == "null" else int(float(v))
+    strv = lambda v: None if v == "null" else v.strip('"')
+    out = {"lifts_open": num(m.group(1)), "lifts_total": num(m.group(2)), "runs_open": num(m.group(3)),
+           "runs_total": num(m.group(5)), "flag": num(m.group(6)), "opens": strv(m.group(7)), "closes": strv(m.group(8)),
+           "updated": m.group(9), "link": f"https://www.onthesnow.com/{slug}/skireport"}
+    rest = h[m.end(): m.end() + 4000]
+    for key in ("acres", "parks"):
+        k = re.search(r'"%s":\{"open":(null|\d+),"total":(null|[\d.]+)\}' % key, rest)
+        if k:
+            out[key + "_open"], out[key + "_total"] = num(k.group(1)), num(k.group(2))
+    return out
 
 
 _cc_cache = {}
@@ -417,7 +437,7 @@ def mark(source, ok, note=""):
 
 
 EXPECT = {  # source -> what it feeds, for the report
-    "onthesnow": "resort cam photos", "youtube": "Brighton/Solitude live-stream cams", "resort pages": "Sugar Bowl/Targhee cams",
+    "onthesnow": "resort cam photos", "onthesnow report": "lifts and runs open", "youtube": "Brighton/Solitude live-stream cams", "resort pages": "Sugar Bowl/Targhee cams",
     "udot cottonwood": "Cottonwood road status, parking signs and canyon cams", "udot cams": "Snowbasin road cams",
     "idaho 511": "Targhee road cams", "wydot cams": "Teton Pass cams", "wydot report": "Wyoming road report",
     "cdot cams": "Colorado road cams", "cdot events": "Colorado road status", "caltrans cams": "California road cams",
@@ -502,6 +522,15 @@ def build(out_dir, resorts_pos, log=print):
             except Exception as e:
                 mark("resort pages", False, str(e))
                 r["errors"].append(f"resort page cams: {e}")
+        # lifts and runs (resort-reported, via OnTheSnow)
+        rslug = src.get("report", src.get("ots"))
+        if rslug:
+            try:
+                r["report"] = ots_report(rslug)
+                mark("onthesnow report", bool(r["report"]), "" if r["report"] else f"{rslug}: lift/run numbers not found on page")
+            except Exception as e:
+                mark("onthesnow report", False, f"{rslug}: {e}")
+                r["errors"].append(f"lift report: {e}")
         # road cams
         n = 0
         for spec in src.get("road", []):
@@ -523,6 +552,9 @@ def build(out_dir, resorts_pos, log=print):
                 elif kind == "cdot":
                     by = {c["id"]: c for c in cdot_cams()}
                     lst = [(cdot_snapshot(by[i]["views"][0]["url"]), by[i]["name"], by[i]["views"][0]["url"]) for i in spec[1] if i in by and by[i].get("views")]
+                elif kind == "cdotq1":
+                    lst = [(cdot_snapshot(c["views"][0]["url"]), c["name"], c["views"][0]["url"]) for c in cdot_cams()
+                           if c.get("views") and c.get("active", True) and re.search(spec[1], c["name"], re.I)][:1]
                 elif kind == "cdotq":
                     lst = [(cdot_snapshot(c["views"][0]["url"]), c["name"], c["views"][0]["url"]) for c in cdot_cams()
                            if c.get("views") and c.get("active", True) and re.search(spec[1], c["name"], re.I)][:3]
@@ -532,7 +564,7 @@ def build(out_dir, resorts_pos, log=print):
                 else:
                     lst = []
                 rk = {"cc": "udot cottonwood", "udot": "udot cams", "idaho": "idaho 511", "wydot": "wydot cams", "cdot": "cdot cams",
-                      "cdotq": "cdot cams", "ct": "caltrans cams"}.get(kind, kind)
+                      "cdotq": "cdot cams", "cdotq1": "cdot cams", "ct": "caltrans cams"}.get(kind, kind)
                 mark(rk, bool(lst), "" if lst else f"{rid}: no cams matched")
                 for item in lst:
                     u, title = item[0], item[1]
@@ -546,7 +578,7 @@ def build(out_dir, resorts_pos, log=print):
                     n += 1
             except Exception as e:
                 mark({"cc": "udot cottonwood", "udot": "udot cams", "idaho": "idaho 511", "wydot": "wydot cams", "cdot": "cdot cams",
-                      "cdotq": "cdot cams", "ct": "caltrans cams"}.get(spec[0], spec[0]), False, f"{rid}: {e}")
+                      "cdotq": "cdot cams", "cdotq1": "cdot cams", "ct": "caltrans cams"}.get(spec[0], spec[0]), False, f"{rid}: {e}")
                 r["errors"].append(f"road cams {spec[0]}: {e}")
         # road status
         for spec in src.get("status", []):

@@ -608,9 +608,45 @@ def render_card(r, scale):
             f'<div class="sub">{esc(" · ".join(sub))}</div></div>'
             f'<div class="badge {color(best["score"])}" title="Best powder score in the window">{best["score"]}</div></div>'
             f'<div class="next">Tomorrow <b>{nxt["ovn"]:.0f}"</b> · next 5 days ~{r["total5"]:.0f}" · {best_txt}{lvl_txt}</div>'
-            f'{render_wx_alerts(r)}'
+            f'{render_report(r)}{render_wx_alerts(r)}'
             f'<div class="bars" style="grid-template-columns:repeat({len(r["days"])},1fr)">{"".join(bars)}</div>'
             f'{render_hourly(r)}{render_live(r)}{render_trip(r)}</section>')
+
+
+def render_report(r):
+    rp = (r.get("live") or {}).get("report")
+    if not rp:
+        return ""
+    today = datetime.now(ZoneInfo(REGION_TZ[r["region"]])).date()
+    opens = None
+    try:
+        opens = datetime.strptime(rp.get("opens") or "", "%Y-%m-%d").date()
+    except ValueError:
+        pass
+    if rp.get("flag") == 1:
+        pill, cls = "Open", "op"
+    elif opens and opens > today:
+        d = (opens - today).days
+        pill, cls = f'Opens {opens.strftime("%a %b %-d")}' + (" (tomorrow)" if d == 1 else f" (in {d} days)" if d < 8 else ""), "soon"
+    else:
+        pill, cls = "Closed today", "cl"
+    def bar(label, o, t):
+        if not t:
+            return ""
+        o = o or 0
+        pct = max(0, min(100, round(100 * o / t)))
+        return (f'<div class="mrow"><span class="ml">{label}</span><span class="mbar"><i style="width:{pct}%"></i></span>'
+                f'<span class="mv"><b>{o}</b>/{t}</span></div>')
+    extra = []
+    if rp.get("acres_total"):
+        extra.append(f'{rp["acres_open"] if rp.get("acres_open") is not None else "?"} of {rp["acres_total"]:,} acres')
+    if rp.get("parks_total"):
+        extra.append(f'{rp.get("parks_open") or 0} of {rp["parks_total"]} terrain parks')
+    lbl, iso = _ts(rp.get("updated", ""), ZoneInfo(REGION_TZ[r["region"]]))
+    return (f'<div class="mstat"><div class="mhead"><span class="mpill {cls}">{esc(pill)}</span>'
+            f'<span class="mut">Lifts and runs (resort-reported) · <span class="ago" data-t="{iso}">{lbl}</span></span></div>'
+            f'{bar("Lifts", rp.get("lifts_open"), rp.get("lifts_total"))}{bar("Runs", rp.get("runs_open"), rp.get("runs_total"))}'
+            f'<div class="mut mx">{" · ".join(extra)}{" · " if extra else ""}<a href="{esc(rp["link"])}" target="_blank" rel="noopener">Full lift and trail report</a></div></div>')
 
 
 def render_wx_alerts(r):
@@ -954,6 +990,14 @@ table.hr td.gw{color:#e0602a;font-weight:700}
 #lb img{max-width:100%;max-height:82vh;border-radius:8px}
 #lb div{color:#fff;font-size:14px;margin-top:8px;text-align:center}
 .hc{font-size:12px;color:var(--mut)}.hc.bad{color:var(--warn)}
+.mstat{margin:4px 0 8px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg)}
+.mhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11.5px;margin-bottom:5px}
+.mpill{font-size:12px;font-weight:700;padding:2px 8px;border-radius:20px}
+.mpill.op{background:#1f9d55;color:#fff}.mpill.soon{background:#e8b730;color:#1b1b1b}.mpill.cl{background:#6b7785;color:#fff}
+.mrow{display:flex;align-items:center;gap:8px;font-size:12.5px;margin:3px 0}
+.ml{width:38px;color:var(--mut)}.mv{min-width:56px;text-align:right}
+.mbar{flex:1;height:7px;border-radius:4px;background:var(--line);overflow:hidden}.mbar i{display:block;height:100%;background:#1f9d55;border-radius:4px}
+.mx{font-size:11.5px;margin-top:4px}.mx a{color:var(--s2);text-decoration:none;font-weight:600}
 .wxas{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 8px}
 .wxa{font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;background:#fff1e0;color:#8a4b00;text-decoration:none;border:1px solid #f1c48a}
 details.trip{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
