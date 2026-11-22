@@ -1,22 +1,22 @@
 {
- "News Desk": {
-  "time_utc": "2026-11-22T11:13:48+00:00",
-  "logged": 0,
-  "note": "Quiet Sunday news; NZ-India Test (NZ 119/2 trail 233) and Park City delay already priced; no 8c edge"
- },
- "News Pulse": {
-  "time_utc": "2026-11-22T13:38:24+00:00",
-  "logged": 0,
-  "note": "Quiet Sunday morning; no market-moving news in last 2h"
- },
- "Gas Risk Scan": {
-  "time_utc": "2026-11-22T13:44:23+00:00",
-  "logged": 0,
-  "note": "National low: RBOB -14c/5d, crude on 3rd weekly loss, no outages found"
- },
- "Research Picks": {
-  "time_utc": "2026-11-21T22:53:36+00:00",
-  "logged": 1,
-  "note": "Boston ML vs WSH (Swayman vs Lindgren goalie gap); others skipped: unconfirmed goalies or noisy lines"
- }
+  "News Desk": {
+    "time_utc": "2026-11-22T11:13:48+00:00",
+    "logged": 0,
+    "note": "Quiet Sunday news; NZ-India Test (NZ 119/2 trail 233) and Park City delay already priced; no 8c edge"
+  },
+  "News Pulse": {
+    "time_utc": "2026-11-22T14:37:48+00:00",
+    "logged": 0,
+    "note": "Quiet Sunday morning; no market-moving news in last 2h"
+  },
+  "Gas Risk Scan": {
+    "time_utc": "2026-11-22T13:44:23+00:00",
+    "logged": 0,
+    "note": "National low: RBOB -14c/5d, crude on 3rd weekly loss, no outages found"
+  },
+  "Research Picks": {
+    "time_utc": "2026-11-21T22:53:36+00:00",
+    "logged": 1,
+    "note": "Boston ML vs WSH (Swayman vs Lindgren goalie gap); others skipped: unconfirmed goalies or noisy lines"
+  }
 }
