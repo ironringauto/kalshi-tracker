@@ -1,19 +1,29 @@
 {
- "date": "2026-11-22",
+ "date": "2026-11-23",
  "national_risk": "low",
  "national_reason": "",
  "states": {},
  "sources": [
   {
-   "title": "Oil prices end largely unchanged as Brent edges higher and US crude slips",
-   "url": "https://qna.org.qa/en/News-Area/News/2026-11/20/oil-prices-end-largely-unchanged-as-brent-edges-higher-and-us-crude-slips",
-   "date": "2026-11-20"
+   "title": "Oil slips with Mideast flows in focus (CNBC)",
+   "url": "https://www.cnbc.com/amp/2026/11/23/oil-prices-fall-amid-equity-sell-off-though-iran-war-attacks-limit-losses.html",
+   "date": "2026-11-23"
   },
   {
-   "title": "NYMEX RBOB (data.json wholesale): $2.4788 on Nov 20, -1.6c 1d, -5.6c 3d, -14.3c 5d",
+   "title": "Oil falls on increased Middle Eastern supplies (RTE)",
+   "url": "https://www.rte.ie/news/business/2026/1123/1600267-world-oil-prices/",
+   "date": "2026-11-23"
+  },
+  {
+   "title": "National Gas Prices Drop 18 Cents Ahead of Thanksgiving Travel Rush",
+   "url": "https://www.clarksvilleonline.com/2026/11/22/national-gas-prices-drop-18-cents-ahead-of-thanksgiving-travel-rush/",
+   "date": "2026-11-22"
+  },
+  {
+   "title": "NYMEX RBOB (data.json wholesale): $2.4498 on Nov 23, -5.3c 1d, -3.2c 3d, -8.8c 5d",
    "url": "https://finance.yahoo.com/quote/RB=F/",
-   "date": "2026-11-20"
+   "date": "2026-11-23"
   }
  ],
- "made_utc": "2026-11-22T13:44:15Z"
+ "made_utc": "2026-11-23T13:43:59Z"
 }
