@@ -1,7 +1,7 @@
 """Official lift + run status, straight from each resort's own feed or website.
 
 fetch_all(log) -> {resort_id: {"lifts":[{n,s,t}], "runs":[{n,s,d}], "updated", "src", "link"}}
-  status s: "open" | "hold" (on hold / delayed / scheduled) | "closed"
+  status s: "open" | "hold" (on hold / delayed) | "sched" (scheduled to run, usually next day) | "closed"
 build_status_file(out_dir, data, log) writes lifts.json for the page: counts, per-lift lists and
   per-feature status for the trail maps (matched by name to OpenSkiMap geometry in trailmaps/).
 """
@@ -29,7 +29,9 @@ def norm_status(s):
     s = (s or "").strip().lower().replace("_", " ")
     if s.startswith("open") or s in ("o", "yes", "true", "running", "operating", "day open"):
         return "open"
-    if any(k in s for k in ("hold", "delay", "schedul", "expected", "anticipat", "standby", "wind", "patrol")):
+    if any(k in s for k in ("schedul", "expected", "anticipat", "forecast")):
+        return "sched"
+    if any(k in s for k in ("hold", "delay", "standby", "wind", "patrol")):
         return "hold"
     return "closed"
 
@@ -84,7 +86,7 @@ def boyne(code):  # Brighton
 
 def jackson():
     d = jget("https://www.jacksonhole.com/api/all.json")
-    m = {"OPEN": "open", "DELAYED": "hold", "FORECAST": "hold", "CLOSED": "closed", "OUT_OF_PERIOD": "closed"}
+    m = {"OPEN": "open", "DELAYED": "hold", "FORECAST": "sched", "CLOSED": "closed", "OUT_OF_PERIOD": "closed"}
     lifts = [{"n": v["name"], "s": m.get(v.get("openingStatus"), norm_status(v.get("openingStatus"))), "t": v.get("liftType") or ""}
              for v in (d.get("lifts") or {}).values()]
     runs = [{"n": v["name"], "s": m.get(v.get("openingStatus"), norm_status(v.get("openingStatus"))), "d": v.get("trailLevel") or ""}
@@ -296,13 +298,13 @@ def match(names, feats):
         if not ss:
             res.append(None)
         else:  # if a name covers several segments (upper/lower), open wins, then hold
-            res.append("open" if "open" in ss else "hold" if "hold" in ss else "closed")
+            res.append("open" if "open" in ss else "hold" if "hold" in ss else "sched" if "sched" in ss else "closed")
     return res
 
 
 def summarize(d):
     c = lambda xs, s: sum(1 for x in xs if x["s"] == s)
-    return {"lifts_open": c(d["lifts"], "open"), "lifts_hold": c(d["lifts"], "hold"), "lifts_total": len(d["lifts"]),
+    return {"lifts_open": c(d["lifts"], "open"), "lifts_hold": c(d["lifts"], "hold"), "lifts_sched": c(d["lifts"], "sched"), "lifts_total": len(d["lifts"]),
             "runs_open": c(d["runs"], "open"), "runs_total": len(d["runs"])}
 
 
@@ -346,7 +348,7 @@ def build_status_file(out_dir, data, log=print):
         if os.path.exists(tm):
             g = json.load(open(tm))
             ms = {"runs": match(d["runs"], g["runs"]), "lifts": match(d["lifts"], g["lifts"])}
-            code = {"open": "o", "hold": "h", "closed": "c", None: "u"}
+            code = {"open": "o", "hold": "h", "sched": "s", "closed": "c", None: "u"}
             e["map"] = {k: "".join(code[x] for x in v) for k, v in ms.items()}
             named = [i for i, f in enumerate(g["runs"]) if f.get("n")]
             hit = sum(1 for i in named if ms["runs"][i])

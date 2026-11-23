@@ -604,13 +604,15 @@ def render_card(r, scale):
     lvl = next((d["snow_level_ft"] for d in r["days"][:3] if d["snow_level_ft"] and d["ovn"] + d["day"] >= 1), None)
     lvl_txt = f' · snow level ~{lvl:,} ft' if lvl else ""
     best_txt = (f'best {best["dow"]} {best["dnum"]} ({best["ovn"]:.0f}")' if best["ovn"] >= 1 else "no real snow in sight")
-    return (f'<section class="card" id="{r["id"]}"><div class="ch"><div><h3>{esc(r["name"])}</h3>'
+    return (f'<details class="card" id="{r["id"]}"><summary><div class="ch"><div><h3>{esc(r["name"])}</h3>'
             f'<div class="sub">{esc(" · ".join(sub))}</div></div>'
-            f'<div class="badge {color(best["score"])}" title="Best powder score in the window">{best["score"]}</div></div>'
+            f'<div class="chr"><div class="badge {color(best["score"])}" title="Best powder score in the window">{best["score"]}</div>'
+            f'<span class="chev" aria-hidden="true"></span></div></div>'
             f'<div class="next">Tomorrow <b>{nxt["ovn"]:.0f}"</b> · next 5 days ~{r["total5"]:.0f}" · {best_txt}{lvl_txt}</div>'
+            f'<div class="qs" data-q="{r["id"]}"></div></summary><div class="cb">'
             f'{render_report(r)}{render_wx_alerts(r)}'
             f'<div class="bars" style="grid-template-columns:repeat({len(r["days"])},1fr)">{"".join(bars)}</div>'
-            f'{render_hourly(r)}{render_live(r)}{render_trip(r)}</section>')
+            f'{render_hourly(r)}{render_live(r)}{render_trip(r)}</div></details>')
 
 
 def render_report(r):
@@ -778,6 +780,14 @@ def render(data, tzs=None):
                     f'<span class="rs">{len(rs)} resorts · most snow next 5 days: {esc(top["name"])} ~{top["total5"]:.0f}"</span></summary>'
                     f'<div class="chartbox"><div class="ct">Projected snow piling up, inches by each morning (overnight + daytime)</div>{render_chart(rs)}</div>'
                     f'<div class="grid">{"".join(render_card(r, scale) for r in rs)}</div></details>')
+    opts = "".join(f'<optgroup label="{REGION_NAMES[reg]}">' + "".join(
+        f'<option value="{r["id"]}">{esc(r["name"])}</option>' for r in sorted([r for r in data["resorts"] if r["region"] == reg], key=lambda r: r["name"]))
+        + '</optgroup>' for reg in ("UT", "WY", "CO", "CA") if any(r["region"] == reg for r in data["resorts"]))
+    chips = "".join(f'<a href="#reg-{reg}">{REGION_NAMES[reg]}</a>' for reg in ("UT", "WY", "CO", "CA") if any(r["region"] == reg for r in data["resorts"]))
+    nav = (f'<nav class="rnav"><select id="rjump" aria-label="Jump to a resort"><option value="">Jump to a resort…</option>{opts}</select>'
+           f'<span class="rchips">{chips}</span><span class="rbtns"><button type="button" id="xall">Open all</button>'
+           f'<button type="button" id="call">Close all</button></span></nav>')
+    secs.insert(0, nav)
     alerts = "".join(f'<div class="alert {a["level"]}">{esc(a["text"])}</div>' for a in data["alerts"])
     provo = esc(data["provo"]["text"]) if data.get("provo") else ""
     stamp = datetime.fromisoformat(data["generated"]).astimezone(ZoneInfo("America/Denver")).strftime("%a %b %-d, %-I:%M %p MT")
@@ -957,7 +967,31 @@ details.reg:not([open])>summary::before{content:"▸"}
 .chart .el{font-size:12px;font-weight:700}
 .chart .farbg{fill:var(--line);opacity:.45}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;scroll-margin-top:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;scroll-margin-top:64px}
+.grid{align-items:start}
+details.card>summary{list-style:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+details.card>summary::-webkit-details-marker{display:none}
+details.card>summary .next{margin-bottom:0}
+.chr{display:flex;align-items:center;gap:8px}
+.chev{width:26px;height:26px;border-radius:50%;background:var(--line);display:inline-flex;align-items:center;justify-content:center;flex:none;transition:transform .15s}
+.chev::before{content:"";width:7px;height:7px;border-right:2px solid var(--ink);border-bottom:2px solid var(--ink);transform:translateY(-2px) rotate(45deg)}
+details.card[open] .chev{transform:rotate(180deg)}
+details.card:not([open]):hover{border-color:var(--s2)}
+.qs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:7px;font-size:12px;color:var(--mut)}
+.qs:empty{display:none}
+.qs .mpill{margin:0}
+.qs b{color:var(--ink)}
+.qs .qx{color:#1d9bf0;font-weight:600}
+details.card[open]>summary{border-bottom:1px solid var(--line);padding-bottom:9px;margin-bottom:9px}
+details.card[open] .qs{display:none}
+.rnav{position:sticky;top:0;z-index:1100;background:var(--bg,#f6f8fa);display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;margin-top:14px;border-bottom:1px solid var(--line)}
+.rnav select{font:inherit;font-size:14px;font-weight:600;padding:7px 10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);flex:1 1 200px;max-width:340px}
+.rchips{display:flex;gap:6px;flex-wrap:wrap}
+.rchips a{font-size:12.5px;font-weight:600;color:var(--s2);text-decoration:none;padding:5px 9px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.rbtns{display:flex;gap:6px;margin-left:auto}
+.rbtns button{font:inherit;font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+details.reg{scroll-margin-top:60px}
+@media (max-width:560px){.rchips{display:none}.rnav{flex-wrap:nowrap}.rnav select{flex:1 1 auto;min-width:0;font-size:13.5px}.rbtns button{padding:6px 8px;font-size:12px}}
 .card:target{outline:2px solid var(--s2)}
 .ch{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .ch h3{margin:0;font-size:16.5px}
@@ -1031,7 +1065,7 @@ table.hr td.gw{color:#e0602a;font-weight:700}
 .llist{margin-top:7px;font-size:12px}.llist h5{margin:6px 0 4px;font-size:11.5px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
 .lch{display:inline-flex;align-items:center;gap:4px;margin:0 4px 4px 0;padding:2px 7px;border-radius:12px;background:var(--line);font-size:11.5px}
 .lch i{width:7px;height:7px;border-radius:50%;background:#8a96a3;display:inline-block}.lch.open i{background:#22c55e}.lch.hold i{background:#f5b301}
-.lch.open{background:#e3f6ea;color:#14532d}.lch.hold{background:#fff4d6;color:#7a5200}
+.lch.open{background:#e3f6ea;color:#14532d}.lch.hold{background:#fff4d6;color:#7a5200}.lch.sched i{background:#60a5fa}.lch.sched{background:#e6f0fd;color:#1e3a8a}
 .oruns{line-height:1.55;color:var(--ink)}
 .rx{margin-top:7px;border-left:3px solid #1d9bf0;padding:2px 0 2px 9px}
 .rx .rxh{font-size:11.5px;color:var(--mut)}.rx .rxh a{color:#1d9bf0;font-weight:700;text-decoration:none}
@@ -1092,7 +1126,7 @@ details.trip[open]>summary::before{content:"▾ "}
   <div class="attr">Imagery: NASA EOSDIS GIBS (Blue Marble), USGS The National Map. Weather: NOAA HRRR (0-2 days), National Blend of Models (2-10 days), GFS outside the U.S.</div>
 </div>
 
-<div class="key"><b>What the score means:</b> the number in each card's corner rates that resort's best powder morning in the window, 0 to 10. It is mostly overnight snow before first chair (about 3" = 3.5, 6" = 6, 10" = 7.6, 15" = 9), minus points when the forecasts disagree, gusts top 35 mph (lift holds), temps run above freezing (heavy snow), or it lands on a Utah weekend (crowds). 6+ is a go day, 3.5 to 6 is good, under 3.5 is a refresh. Tap a region name to hide or show it.</div>
+<div class="key"><b>What the score means:</b> the number in each card's corner rates that resort's best powder morning in the window, 0 to 10. It is mostly overnight snow before first chair (about 3" = 3.5, 6" = 6, 10" = 7.6, 15" = 9), minus points when the forecasts disagree, gusts top 35 mph (lift holds), temps run above freezing (heavy snow), or it lands on a Utah weekend (crowds). 6+ is a go day, 3.5 to 6 is good, under 3.5 is a refresh. Tap a resort to open its full report (lifts, trail map, cams, roads, hourly); tap again to fold it. Tap a region name to hide or show it.</div>
 {{sections}}
 
 <h2>Forecaster's read (NWS Salt Lake City)</h2>
@@ -1321,7 +1355,7 @@ details.trip[open]>summary::before{content:"▾ "}
 <div id="lb" role="dialog" aria-label="Photo"><img alt=""><div></div></div>
 <script>
 (function(){
-var COL={o:"#22c55e",h:"#f5b301",c:"#ef4444",u:"#d5dde6"},WORD={o:"Open",h:"On hold",c:"Closed",u:"Status not matched"};
+var COL={o:"#22c55e",h:"#f5b301",s:"#60a5fa",c:"#ef4444",u:"#d5dde6"},WORD={o:"Open",h:"On hold",s:"Scheduled to run",c:"Closed",u:"Status not matched"};
 var DIFF=function(d){d=(d||"").toLowerCase();return /novice|easy|begin|green/.test(d)?"Beginner (green)":/double.?black|expert|extreme|freeride|dbl/.test(d)?"Expert (double black)":/black|advanced|most_difficult|difficult/.test(d)?"Advanced (black)":/intermed|blue|more_difficult/.test(d)?"Intermediate (blue)":/park/.test(d)?"Terrain park":""};
 var LJ=null;
 function esc(t){return String(t==null?"":t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
@@ -1332,10 +1366,11 @@ function card(el,e){
   var pill,cls;
   if(e.lifts_open>0){pill="Open";cls="op"}
   else if(e.lifts_hold>0){pill="Lifts on hold";cls="soon"}
+  else if(e.lifts_sched>0&&!(opens&&opens>today)){pill="Closed for the day";cls="cl"}
   else if(opens&&opens>today){var d=Math.round((Date.parse(opens)-Date.parse(today))/864e5);pill="Opens "+new Date(opens+"T12:00").toLocaleDateString([],{weekday:"short",month:"short",day:"numeric"})+(d===1?" (tomorrow)":d<8?" (in "+d+" days)":"");cls="soon"}
   else{pill="Closed today";cls="cl"}
   var when=e.updated&&Date.parse(e.updated)>Date.now()-36*36e5?'resort updated <span class="ago" data-t="'+esc(e.updated)+'">'+fmt(e.updated)+'</span>':'checked <span class="ago" data-t="'+esc(e.fetched)+'">'+fmt(e.fetched)+'</span>';
-  var hold=e.lifts_hold?'<div class="mhold">'+e.lifts_hold+' lift'+(e.lifts_hold>1?"s":"")+' on hold or scheduled</div>':"";
+  var hold=(e.lifts_hold?'<div class="mhold">'+e.lifts_hold+' lift'+(e.lifts_hold>1?"s":"")+' on hold</div>':"")+(e.lifts_sched&&!e.lifts_open?'<div class="mut mx">'+e.lifts_sched+' lift'+(e.lifts_sched>1?"s":"")+' scheduled to run next</div>':"");
   var h='<div class="mhead"><span class="mpill '+cls+'">'+esc(pill)+'</span><span class="mut">Lifts and runs from the resort\'s own report · '+when+'</span></div>'
    +bar("Lifts",e.lifts_open,e.lifts_total,hold)+bar("Runs",e.runs_open,e.runs_total)
    +(extra?'<div class="mut mx">'+esc(extra)+'</div>':"")
@@ -1343,10 +1378,15 @@ function card(el,e){
    +'<div class="mbtns">'+(e.map?'<button class="mbtn tmbtn">Trail map</button>':"")+'<button class="mbtn llbtn">Lift by lift</button><a href="'+esc(e.link)+'" target="_blank" rel="noopener">Lift report ↗</a>'+(e.maplink?'<a href="'+esc(e.maplink)+'" target="_blank" rel="noopener">Official trail map ↗</a>':"")+'</div>'
    +'<div class="llist" hidden></div><div class="tmwrap" hidden></div>';
   el.innerHTML=h;el._e=e;
+  var q=document.querySelector('.qs[data-q="'+rid+'"]');
+  if(q){var xs=e.x&&e.x.length?' · <span class="qx">@'+esc(e.x[0].h)+' posted <span class="ago" data-t="'+esc(e.x[0].t)+'"></span></span>':"";
+    q.innerHTML='<span class="mpill '+cls+'">'+esc(pill)+'</span><span><b>'+e.lifts_open+'</b>/'+e.lifts_total+' lifts · <b>'+e.runs_open+'</b>/'+e.runs_total+' runs</span>'+(e.lifts_sched&&!e.lifts_open?'<span>· '+e.lifts_sched+' scheduled next</span>':"")+xs}
+  var o=document.querySelector('#rjump option[value="'+rid+'"]');
+  if(o){if(!o._n)o._n=o.textContent;o.textContent=o._n+(e.lifts_open>0?" · open "+e.lifts_open+"/"+e.lifts_total+" lifts":" · "+pill.toLowerCase())}
 }
 function list(el){
   var e=el._e,o=e.runs.filter(function(r){return r.s==="open"}),h='<h5>Lifts</h5>';
-  var ord={open:0,hold:1,closed:2};
+  var ord={open:0,hold:1,sched:2,closed:3};
   e.lifts.slice().sort(function(a,b){return ord[a.s]-ord[b.s]}).forEach(function(l){h+='<span class="lch '+l.s+'" title="'+esc(l.s)+'"><i></i>'+esc(l.n)+'</span>'});
   h+='<h5>Open runs ('+o.length+')</h5><div class="oruns">'+(o.length?o.map(function(r){return esc(r.n)}).join(" · "):'<span class="mut">None open right now</span>')+'</div>';
   return h;
@@ -1363,7 +1403,7 @@ function tmap(wrap,rid,e){
   var G,bnd,bases={},lines=L.layerGroup().addTo(m),labs=L.layerGroup().addTo(m),items=[];
   function legend(){var h=st.col==="diff"
       ?'<span><b style="background:'+DC.g+'"></b>● Beginner</span><span><b style="background:'+DC.b+'"></b>■ Intermediate</span><span><b style="background:#111"></b>◆ Advanced · ◆◆ Expert</span><span><b style="background:'+DC.p+'"></b>Park</span><span><b class="fade" style="background:#555"></b>Faded = closed</span><span><b style="background:#111"></b><span style="color:#16a34a">●</span> Open lift</span><span><b class="fade" style="background:#555"></b>Closed lift (grey, dashed)</span>'
-      :'<span><b style="background:'+COL.o+'"></b>Open</span><span><b style="background:'+COL.h+'"></b>On hold</span><span><b style="background:'+COL.c+'"></b>Closed</span><span><b style="background:#aab4bf"></b>No status</span>';
+      :'<span><b style="background:'+COL.o+'"></b>Open</span><span><b style="background:'+COL.h+'"></b>On hold</span><span><b style="background:'+COL.s+'"></b>Scheduled</span><span><b style="background:'+COL.c+'"></b>Closed</span><span><b style="background:#aab4bf"></b>No status</span>';
     leg.innerHTML=h+'<span>Tap a line for details · runs © OpenStreetMap · imagery USGS</span>'}
   function draw(){
     lines.clearLayers();items=[];var only=st.show==="open";
@@ -1433,6 +1473,24 @@ fetch("lifts.json",{cache:"no-store"}).then(function(r){return r.json()}).then(f
   document.querySelectorAll(".mstat[data-rid]").forEach(function(el){var e=j.resorts[el.getAttribute("data-rid")];if(e)card(el,e)});
   var ev=document.createEvent("Event");ev.initEvent("liftsready",true,true);document.dispatchEvent(ev);
 }).catch(function(){});
+})();
+</script>
+<script>
+(function(){
+var KEY="snowOpenCards";
+function saved(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify([].map.call(document.querySelectorAll("details.card[open]"),function(d){return d.id})))}catch(e){}}
+saved().forEach(function(id){var d=document.getElementById(id);if(d&&d.tagName==="DETAILS")d.open=true});
+document.querySelectorAll("details.card").forEach(function(d){d.addEventListener("toggle",function(){save();if(d.open){var m=d.querySelectorAll(".leaflet-container");for(var i=0;i<m.length;i++){window.dispatchEvent(new Event("resize"))}}})});
+function go(id,smooth){var d=document.getElementById(id);if(!d)return;var reg=d.closest("details.reg");if(reg)reg.open=true;if(d.tagName==="DETAILS"&&d.classList.contains("card"))d.open=true;
+  setTimeout(function(){d.scrollIntoView({behavior:smooth===false?"auto":"smooth",block:"start"})},40)}
+var sel=document.getElementById("rjump");
+if(sel)sel.addEventListener("change",function(){if(sel.value){history.replaceState(null,"","#"+sel.value);go(sel.value);sel.value=""}});
+var xa=document.getElementById("xall"),ca=document.getElementById("call");
+if(xa)xa.addEventListener("click",function(){document.querySelectorAll("details.reg").forEach(function(r){r.open=true});document.querySelectorAll("details.card").forEach(function(d){d.open=true});save()});
+if(ca)ca.addEventListener("click",function(){document.querySelectorAll("details.card").forEach(function(d){d.open=false});save()});
+window.addEventListener("hashchange",function(){var h=location.hash.slice(1);if(h&&!/^reg-/.test(h))go(h)});
+if(location.hash&&!/^#reg-/.test(location.hash))go(location.hash.slice(1),false);
 })();
 </script>
 <script>
