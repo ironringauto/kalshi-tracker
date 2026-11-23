@@ -1,22 +1,22 @@
 {
- "News Desk": {
-  "time_utc": "2026-11-23T11:14:43+00:00",
-  "logged": 0,
-  "note": "No ideas: D. Jones release/Nvidia CEO/FAA cause news already priced; no fresh dated catalysts with 8c+ edge"
- },
- "News Pulse": {
-  "time_utc": "2026-11-23T13:38:21+00:00",
-  "logged": 0,
-  "note": "Nothing new: House margin, Nvidia/Huang, BTC rebound already priced; gas movers already moved"
- },
- "Gas Risk Scan": {
-  "time_utc": "2026-11-23T13:44:01Z",
-  "logged": 0,
-  "note": "national low: crude and RBOB falling, retail down 12-18c/wk, no outages"
- },
- "Research Picks": {
-  "time_utc": "2026-11-22T22:52:43+00:00",
-  "logged": 0,
-  "note": "No picks: PIT goalie unconfirmed; BOS/NYK injury reports unresolved; SNF and NBA favorites priced fairly"
- }
+  "News Desk": {
+    "time_utc": "2026-11-23T11:14:43+00:00",
+    "logged": 0,
+    "note": "No ideas: D. Jones release/Nvidia CEO/FAA cause news already priced; no fresh dated catalysts with 8c+ edge"
+  },
+  "News Pulse": {
+    "time_utc": "2026-11-23T14:38:11+00:00",
+    "logged": 0,
+    "note": "Huang back as NVDA CEO/Nasdaq rally; no NVDA or index market in catalog, crypto/metals movers already priced"
+  },
+  "Gas Risk Scan": {
+    "time_utc": "2026-11-23T13:44:01Z",
+    "logged": 0,
+    "note": "national low: crude and RBOB falling, retail down 12-18c/wk, no outages"
+  },
+  "Research Picks": {
+    "time_utc": "2026-11-22T22:52:43+00:00",
+    "logged": 0,
+    "note": "No picks: PIT goalie unconfirmed; BOS/NYK injury reports unresolved; SNF and NBA favorites priced fairly"
+  }
 }
