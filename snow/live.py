@@ -47,10 +47,13 @@ SOURCES = {
                "road": [("cdotq1", r"US 6 .*Loveland"), ("cdotq1", r"I-70 .*E of Eisenhower"), ("cdotq1", r"I-70 .*W of Eisenhower"), ("cdotq1", r"I-70 .*1.7 miles W of Eisenhower")],
                "status": [("cdot", ["I-70", "US 6"], (39.55, -106.0, 39.75, -105.7))], "x": CO_X},
     "steamboat": {"ots": "colorado/steamboat",
-                  "road": [("cdotq", r"US 40 .*(Rabbit Ears|Muddy Pass|Steamboat)")],
+                  "road": [("cdot", [967, 21313, 968])],
                   "status": [("cdot", ["US 40"], (40.2, -107.0, 40.6, -106.3))], "x": CO_X},
     "eldora": {"ots": None, "report": "colorado/eldora-mountain-resort",
-               "road": [("cdotq", r"CO 119 .*(Nederland|Boulder Canyon|Eldora)")],
+               "hdrelay": ("https://www.eldora.com/page-data/the-mountain/current-conditions/webcams/page-data.json",
+                           "https://www.eldora.com/the-mountain/current-conditions/webcams/",
+                           {"snow_stake": "Snow stake", "alpenglow": "Alpenglow", "ipela_snc_wr630": "Lower Mountain"}),
+               "road": [("cdot", [1028, 21344])],
                "status": [("cdot", ["CO 119"], (39.9, -105.6, 40.05, -105.25))], "x": CO_X},
     "snowmass": {"ots": "colorado/aspen-snowmass",
                  "road": [("cdot", [1025, 1023, 1024]), ("cdotq1", r"I-70 .*Glenwood Springs")],
@@ -522,6 +525,22 @@ def build(out_dir, resorts_pos, log=print):
             except Exception as e:
                 mark("resort pages", False, str(e))
                 r["errors"].append(f"resort page cams: {e}")
+        if src.get("hdrelay") and len(r["mtn"]) < 4:
+            try:
+                ids = list(dict.fromkeys(re.findall(r"cam=(cam_\w+?)(?:&|\\|\"|$)", http(src["hdrelay"][0]))))
+                mark("resort pages", bool(ids), "" if ids else f"{src['hdrelay'][0]}: no hdrelay cams found")
+                ids.sort(key=lambda c: 0 if "stake" in c else 1)
+                for cid in ids:
+                    if len(r["mtn"]) >= 4:
+                        break
+                    key = re.sub(r"_\d+$", "", cid[4:]).replace(rid + "___", "")
+                    title = src["hdrelay"][2].get(key, key.replace("_", " ").title())
+                    i = len(r["mtn"])
+                    r["mtn"].append({"src": img(f"https://watch.hdrelay.io/api/public/poster/{cid}", f"{rid}_m{i}.jpg"), "title": title,
+                                     "t": now.isoformat(), "link": src["hdrelay"][1]})
+            except Exception as e:
+                mark("resort pages", False, str(e))
+                r["errors"].append(f"resort hdrelay cams: {e}")
         # lifts and runs (resort-reported, via OnTheSnow)
         rslug = src.get("report", src.get("ots"))
         if rslug:
