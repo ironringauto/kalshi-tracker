@@ -968,7 +968,7 @@ details.reg:not([open])>summary::before{content:"▸"}
 .chart .farbg{fill:var(--line);opacity:.45}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;scroll-margin-top:64px}
-.grid{align-items:start}
+.grid{align-items:start}.grid>.card{min-width:0;max-width:100%}details.card>.cb{min-width:0;overflow:hidden}
 details.card>summary{list-style:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
 details.card>summary::-webkit-details-marker{display:none}
 details.card>summary .next{margin-bottom:0}
@@ -989,7 +989,7 @@ details.card[open] .qs{display:none}
 .rchips{display:flex;gap:6px;flex-wrap:wrap}
 .rchips a{font-size:12.5px;font-weight:600;color:var(--s2);text-decoration:none;padding:5px 9px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
 .rbtns{display:flex;gap:6px;margin-left:auto}
-.rbtns button{font:inherit;font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.rbtns button{white-space:nowrap;font:inherit;font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
 details.reg{scroll-margin-top:60px}
 @media (max-width:560px){.rchips{display:none}.rnav{flex-wrap:nowrap}.rnav select{flex:1 1 auto;min-width:0;font-size:13.5px}.rbtns button{padding:6px 8px;font-size:12px}}
 .card:target{outline:2px solid var(--s2)}
