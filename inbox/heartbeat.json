@@ -1,22 +1,22 @@
 {
-  "News Desk": {
-    "time_utc": "2026-11-24T11:15:33+00:00",
-    "logged": 1,
-    "note": "NO on Congress-resign Nov: Gomez resignation effective Dec 1, rules need vacancy in Nov; oil/gold/yields looked priced in"
-  },
-  "News Pulse": {
-    "time_utc": "2026-11-24T13:37:42+00:00",
-    "logged": 0,
-    "note": "Nothing new: BTC slide/Nvidia fade/Gomez already covered or priced; no unpriced breaking item"
-  },
-  "Gas Risk Scan": {
-    "time_utc": "2026-11-23T13:44:01Z",
-    "logged": 0,
-    "note": "national low: crude and RBOB falling, retail down 12-18c/wk, no outages"
-  },
-  "Research Picks": {
-    "time_utc": "2026-11-23T22:52:58+00:00",
-    "logged": 1,
-    "note": "Philadelphia ML vs depleted Portland; NHL goalies unconfirmed so skipped"
-  }
+ "News Desk": {
+  "time_utc": "2026-11-24T11:15:33+00:00",
+  "logged": 1,
+  "note": "NO on Congress-resign Nov: Gomez resignation effective Dec 1, rules need vacancy in Nov; oil/gold/yields looked priced in"
+ },
+ "News Pulse": {
+  "time_utc": "2026-11-24T13:37:42+00:00",
+  "logged": 0,
+  "note": "Nothing new: BTC slide/Nvidia fade/Gomez already covered or priced; no unpriced breaking item"
+ },
+ "Gas Risk Scan": {
+  "time_utc": "2026-11-24T13:44:39+00:00",
+  "logged": 1,
+  "note": "National low (crude at 3-mo low, RBOB -8.5c/3d); MI flagged for Nov 23 price-cycle spike"
+ },
+ "Research Picks": {
+  "time_utc": "2026-11-23T22:52:58+00:00",
+  "logged": 1,
+  "note": "Philadelphia ML vs depleted Portland; NHL goalies unconfirmed so skipped"
+ }
 }
