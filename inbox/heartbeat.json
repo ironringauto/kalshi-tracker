@@ -1,22 +1,22 @@
 {
-  "News Desk": {
-    "time_utc": "2026-11-25T11:14:17+00:00",
-    "logged": 0,
-    "note": "No ideas: USTR 301 tariff plan is agency action not Trump exec action; Sweden PM vote Nov 30 and Rodgers benching too rule-ambiguous"
-  },
-  "News Pulse": {
-    "time_utc": "2026-11-25T13:38:08+00:00",
-    "logged": 0,
-    "note": "Nothing new: fresh US tariff proposals (China et al) are proposals with comment periods, not dated exec actions; PCE/selloff already priced"
-  },
-  "Gas Risk Scan": {
-    "time_utc": "2026-11-24T13:44:39+00:00",
-    "logged": 1,
-    "note": "National low (crude at 3-mo low, RBOB -8.5c/3d); MI flagged for Nov 23 price-cycle spike"
-  },
-  "Research Picks": {
-    "time_utc": "2026-11-24T22:53:03+00:00",
-    "logged": 1,
-    "note": "Vegas ML vs EDM (max 0.52); NBA skipped (Cade/PJ Washington questionable; no edge on BOS-WAS)"
-  }
+ "News Desk": {
+  "time_utc": "2026-11-25T11:14:17+00:00",
+  "logged": 0,
+  "note": "No ideas: USTR 301 tariff plan is agency action not Trump exec action; Sweden PM vote Nov 30 and Rodgers benching too rule-ambiguous"
+ },
+ "News Pulse": {
+  "time_utc": "2026-11-25T13:38:08+00:00",
+  "logged": 0,
+  "note": "Nothing new: fresh US tariff proposals (China et al) are proposals with comment periods, not dated exec actions; PCE/selloff already priced"
+ },
+ "Gas Risk Scan": {
+  "time_utc": "2026-11-25T13:44:26+00:00",
+  "logged": 0,
+  "note": "national low: RBOB -7c over 3 sessions; Hormuz oil bump (+$2 Nov 24) not passing through"
+ },
+ "Research Picks": {
+  "time_utc": "2026-11-24T22:53:03+00:00",
+  "logged": 1,
+  "note": "Vegas ML vs EDM (max 0.52); NBA skipped (Cade/PJ Washington questionable; no edge on BOS-WAS)"
+ }
 }
