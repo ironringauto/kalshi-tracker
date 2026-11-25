@@ -1,1 +1,24 @@
-{"date": "2026-11-24", "national_risk": "low", "national_reason": "", "states": {"MI": "Unexplained overnight price-cycle spike at stations statewide on Nov 23; AAA daily avg may lag up 1-2 days (WWMT/GasBuddy, Nov 23)"}, "sources": [{"title": "Experts lost on why gas prices spiked in Michigan as prices trend downward across U.S. (WWMT)", "url": "https://wwmt.com/news/state/experts-lost-on-why-gas-prices-spiked-in-michigan-as-prices-trend-downward-across-us", "date": "2026-11-23"}, {"title": "Crude Oil Futures Hit 3-Mo Low on Supply Fears (DTN)", "url": "https://www.dtnpf.com/agriculture/web/ag/news/world-policy/article/2026/11/23/crude-oil-futures-hit-3-mo-low-fears", "date": "2026-11-23"}, {"title": "Oil Prices Hit Three-Month Lows as Global Supply Recovers", "url": "https://bioplasticsnews.com/2026/11/24/oil-prices-three-month-lows-global-supply-recovers/", "date": "2026-11-24"}, {"title": "NYMEX RBOB (data.json wholesale): $2.4099 on Nov 24, +0.5c 1d, -8.5c 3d, -12.5c 5d", "url": "https://finance.yahoo.com/quote/RB=F/", "date": "2026-11-24"}], "made_utc": "2026-11-24T13:44:37Z"}
+{
+ "date": "2026-11-25",
+ "national_risk": "low",
+ "national_reason": "",
+ "states": {},
+ "sources": [
+  {
+   "title": "Oil settles up $2 as traders weigh continued Hormuz ship attacks (CNBC)",
+   "url": "https://www.cnbc.com/2026/11/24/oil-wti-brent-hormuz-supply.html",
+   "date": "2026-11-24"
+  },
+  {
+   "title": "The commodities feed: Oil shrugs off rising Middle East tensions (ING/FXStreet)",
+   "url": "https://www.fxstreet.com/analysis/the-commodities-feed-oil-shrugs-off-rising-middle-east-tensions-202611250819",
+   "date": "2026-11-25"
+  },
+  {
+   "title": "NYMEX RBOB futures (Yahoo RB=F via data.json): 2.4293, -2.5c 1d, -7.3c 3d",
+   "url": "https://finance.yahoo.com/quote/RB=F",
+   "date": "2026-11-25"
+  }
+ ],
+ "made_utc": "2026-11-25T13:44:24+00:00"
+}
