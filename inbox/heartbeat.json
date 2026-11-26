@@ -1,22 +1,22 @@
 {
- "News Desk": {
-  "time_utc": "2026-11-26T11:14:24+00:00",
-  "logged": 0,
-  "note": "Thanksgiving AM: overnight news (Steelers cut Rodgers; Macy's parade postponed; new tariffs; Pete Rose pardon) has no catalog market or is already priced"
- },
- "News Pulse": {
-  "time_utc": "2026-11-26T13:38:08+00:00",
-  "logged": 0,
-  "note": "Thanksgiving AM: no market-moving breaking news; only mover (MLB King SD) already priced"
- },
- "Gas Risk Scan": {
-  "time_utc": "2026-11-26T13:44:54+00:00",
-  "logged": 0,
-  "note": "national low: RBOB +3.8c/3d (under 6c), Hormuz mine claims but crude mixed, no US outages/tax changes"
- },
- "Research Picks": {
-  "time_utc": "2026-11-25T22:54:03+00:00",
-  "logged": 1,
-  "note": "LA Clippers ML vs depleted Memphis; NHL skipped (goalies unconfirmed)"
- }
+  "News Desk": {
+    "time_utc": "2026-11-26T11:14:24+00:00",
+    "logged": 0,
+    "note": "Thanksgiving AM: overnight news (Steelers cut Rodgers; Macy's parade postponed; new tariffs; Pete Rose pardon) has no catalog market or is already priced"
+  },
+  "News Pulse": {
+    "time_utc": "2026-11-26T14:38:11+00:00",
+    "logged": 0,
+    "note": "Thanksgiving AM quiet; no movers; no fresh news tied to unpriced catalog markets"
+  },
+  "Gas Risk Scan": {
+    "time_utc": "2026-11-26T13:44:54+00:00",
+    "logged": 0,
+    "note": "national low: RBOB +3.8c/3d (under 6c), Hormuz mine claims but crude mixed, no US outages/tax changes"
+  },
+  "Research Picks": {
+    "time_utc": "2026-11-25T22:54:03+00:00",
+    "logged": 1,
+    "note": "LA Clippers ML vs depleted Memphis; NHL skipped (goalies unconfirmed)"
+  }
 }
