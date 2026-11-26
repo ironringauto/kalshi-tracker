@@ -1,24 +1,24 @@
 {
- "date": "2026-11-25",
+ "date": "2026-11-26",
  "national_risk": "low",
  "national_reason": "",
  "states": {},
  "sources": [
   {
-   "title": "Oil settles up $2 as traders weigh continued Hormuz ship attacks (CNBC)",
-   "url": "https://www.cnbc.com/2026/11/24/oil-wti-brent-hormuz-supply.html",
-   "date": "2026-11-24"
+   "title": "Oil rises on supply concerns as Iran claims mine strikes on ships (CNBC)",
+   "url": "https://www.cnbc.com/2026/11/26/oil-wti-brent-hormuz-iran-saudi-arabia.html",
+   "date": "2026-11-26"
   },
   {
-   "title": "The commodities feed: Oil shrugs off rising Middle East tensions (ING/FXStreet)",
-   "url": "https://www.fxstreet.com/analysis/the-commodities-feed-oil-shrugs-off-rising-middle-east-tensions-202611250819",
+   "title": "Oil prices fall as supply glut concerns offset Middle East disruption fears (CNBC)",
+   "url": "https://cnbc.com/amp/2026/11/25/oil-wti-brent-hormuz-middle-east.html",
    "date": "2026-11-25"
   },
   {
-   "title": "NYMEX RBOB futures (Yahoo RB=F via data.json): 2.4293, -2.5c 1d, -7.3c 3d",
+   "title": "NYMEX RBOB futures (Yahoo RB=F via data.json): 2.4435, +0.1c 1d, +3.8c 3d, -5.2c 5d",
    "url": "https://finance.yahoo.com/quote/RB=F",
-   "date": "2026-11-25"
+   "date": "2026-11-26"
   }
  ],
- "made_utc": "2026-11-25T13:44:24+00:00"
+ "made_utc": "2026-11-26T13:44:51+00:00"
 }
